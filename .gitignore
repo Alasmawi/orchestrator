@@ -1,0 +1,5 @@
+.env
+.kube/
+__pycache__/
+*.pyc
+.vagrant/
