@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-app
+  namespace: crud-master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway-app
+  template:
+    metadata:
+      labels:
+        app: api-gateway-app
+    spec:
+      containers:
+        - name: api-gateway-app
+          image: __DOCKERHUB_USERNAME__/api-gateway-app:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GATEWAY_APP_HOST
+              value: "0.0.0.0"
+            - name: GATEWAY_APP_PORT
+              value: "3000"
+            - name: INVENTORY_API_URL
+              value: "http://inventory-app:8080"
+            - name: RABBITMQ_HOST
+              value: rabbit-queue
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: BILLING_QUEUE
+              value: billing_queue
+            - name: RABBITMQ_USER
+              valueFrom: { secretKeyRef: { name: rabbitmq-secret, key: RABBITMQ_USER } }
+            - name: RABBITMQ_PASSWORD
+              valueFrom: { secretKeyRef: { name: rabbitmq-secret, key: RABBITMQ_PASSWORD } }
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "300m", memory: "256Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-app
+  namespace: crud-master
+spec:
+  type: NodePort
+  selector:
+    app: api-gateway-app
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30000
