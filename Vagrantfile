@@ -21,6 +21,6 @@ Vagrant.configure("2") do |config|
   config.vm.define "agent" do |agent|
     agent.vm.hostname = "agent"
     agent.vm.network "private_network", ip: AGENT_IP
-    agent.vm.provision "shell", path: "Scripts/k3s-agent.sh", env: { "MASTER_IP" => MASTER_IP }
+    agent.vm.provision "shell", path: "Scripts/k3s-agent.sh", env: { "MASTER_IP" => MASTER_IP, "AGENT_IP" => AGENT_IP }
   end
 end

@@ -67,6 +67,10 @@ Set `DOCKERHUB_USERNAME` in `.env` too — `orchestrator.sh` substitutes it into
 
 ## Running
 
+Needs `vagrant` + VirtualBox and `kubectl` on the host — `orchestrator.sh` applies the manifests from
+the host against the kubeconfig the master writes into the shared folder, rather than shelling into
+the VM to do it.
+
 ```bash
 cp .env.example .env   # fill in real values + DOCKERHUB_USERNAME
 
@@ -83,12 +87,11 @@ kubectl get nodes -A
 is exchanged via the Vagrant shared folder), writes a working `kubeconfig` to `.kube/config`, then
 applies the namespace, secrets, databases, queue, and all three apps in order.
 
-## Verified during development
+## What's verified, and what isn't
 
-Since actually booting the two Vagrant VMs needs VirtualBox (not installed in this environment — see
-project-level notes), every manifest here was instead validated against a local **k3d** cluster
-(K3s-in-Docker, same `master`+`agent` topology, same K3s version) built from the exact files in this
-repo:
+Booting the two Vagrant VMs needs VirtualBox, which wasn't available, so every manifest was validated
+against a local **k3d** cluster instead — K3s-in-Docker, same `master`+`agent` topology, same K3s
+version, built from the exact files in this repo:
 
 - All manifests applied cleanly: `Namespace`, 3 `Secret`s, 2 `StatefulSet`s with bound 1Gi PVCs, 1
   plain `Deployment` (RabbitMQ), 2 `Deployment`s with working `HorizontalPodAutoscaler`s.
@@ -100,6 +103,14 @@ repo:
   that the HPA object was accepted.
 - PVCs (`inventory-db-data-inventory-db-0`, `billing-db-data-billing-db-0`) bound successfully with
   `local-path` storage class.
+
+What k3d can't test is the one thing specific to the Vagrant path: every VirtualBox box comes up with
+the same `10.0.2.15` on its NAT adapter, so both nodes have to be pinned to the private network
+explicitly or they register as the same address and cross-node pod traffic quietly disappears. Both
+[`k3s-master.sh`](Scripts/k3s-master.sh) and [`k3s-agent.sh`](Scripts/k3s-agent.sh) resolve the
+private interface from the node's assigned IP and pass `--node-ip` and `--flannel-iface`. That's
+reasoned from how K3s picks its addresses rather than observed failing, so it's the first thing to
+check on a real `vagrant up`.
 
 ## Design notes
 
