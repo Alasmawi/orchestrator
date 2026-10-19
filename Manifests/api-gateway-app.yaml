@@ -1,8 +1,12 @@
+# api-gateway-app: the only public entry point. Proxies /api/movies to
+# inventory-app and publishes /api/billing bodies to RabbitMQ. Stateless
+# Deployment scaled by api-gateway-app-hpa.yaml (1..3 pods, 60% CPU).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api-gateway-app
   namespace: crud-master
+  labels: { app: api-gateway-app }
 spec:
   replicas: 1
   selector:
@@ -15,9 +19,10 @@ spec:
     spec:
       containers:
         - name: api-gateway-app
-          image: __DOCKERHUB_USERNAME__/api-gateway-app:latest
+          image: __DOCKERHUB_USERNAME__/api-gateway-app:__IMAGE_TAG__
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
           env:
             - name: GATEWAY_APP_HOST
               value: "0.0.0.0"
@@ -35,20 +40,52 @@ spec:
               valueFrom: { secretKeyRef: { name: rabbitmq-secret, key: RABBITMQ_USER } }
             - name: RABBITMQ_PASSWORD
               valueFrom: { secretKeyRef: { name: rabbitmq-secret, key: RABBITMQ_PASSWORD } }
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          # CPU requests are what the HPA's 60% target is measured against.
           resources:
             requests: { cpu: "100m", memory: "128Mi" }
             limits: { cpu: "300m", memory: "256Mi" }
 ---
+# NodePort: reachable on <any-node-ip>:30000 from the host.
 apiVersion: v1
 kind: Service
 metadata:
   name: api-gateway-app
   namespace: crud-master
+  labels: { app: api-gateway-app }
 spec:
   type: NodePort
   selector:
     app: api-gateway-app
   ports:
-    - port: 3000
-      targetPort: 3000
+    - name: http
+      port: 3000
+      targetPort: http
       nodePort: 30000
+---
+# Ingress through K3s' bundled Traefik: reachable on http://<any-node-ip>/api/...
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-gateway-app
+  namespace: crud-master
+  labels: { app: api-gateway-app }
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway-app
+                port:
+                  name: http

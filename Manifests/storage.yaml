@@ -1,0 +1,51 @@
+# Network-backed PersistentVolumes for the two databases.
+#
+# K3s' default local-path storage pins a PV to the node that created it, so a
+# database pod could never move to the other node. These PVs live on the NFS
+# export served by the master VM (see Scripts/k3s-master.sh), so either node
+# can mount them: the StatefulSet pod can be rescheduled anywhere and reattach
+# to the same data.
+#
+# Each StatefulSet's volumeClaimTemplate selects its PV by label, so the
+# inventory and billing data can never be swapped.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-static
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: Immediate
+reclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: inventory-db-pv
+  labels:
+    volume-for: inventory-db
+spec:
+  storageClassName: nfs-static
+  capacity:
+    storage: 1Gi
+  accessModes: ["ReadWriteOnce"]
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions: ["nfsvers=4.1"]
+  nfs:
+    server: 192.168.56.21
+    path: /srv/nfs/k3s/inventory-db
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: billing-db-pv
+  labels:
+    volume-for: billing-db
+spec:
+  storageClassName: nfs-static
+  capacity:
+    storage: 1Gi
+  accessModes: ["ReadWriteOnce"]
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions: ["nfsvers=4.1"]
+  nfs:
+    server: 192.168.56.21
+    path: /srv/nfs/k3s/billing-db

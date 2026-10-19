@@ -1,14 +1,20 @@
+# billing-db: PostgreSQL as a StatefulSet. The headless Service gives the pod a
+# stable DNS name (billing-db / billing-db-0.billing-db); the volumeClaimTemplate
+# binds the NFS-backed PV from storage.yaml, so the data survives the pod
+# being deleted, rescheduled, or moved to the other node.
 apiVersion: v1
 kind: Service
 metadata:
   name: billing-db
   namespace: crud-master
+  labels: { app: billing-db }
 spec:
   clusterIP: None
   selector:
     app: billing-db
   ports:
-    - port: 5432
+    - name: postgres
+      port: 5432
       targetPort: 5432
 ---
 apiVersion: apps/v1
@@ -16,6 +22,7 @@ kind: StatefulSet
 metadata:
   name: billing-db
   namespace: crud-master
+  labels: { app: billing-db }
 spec:
   serviceName: billing-db
   replicas: 1
@@ -27,12 +34,16 @@ spec:
       labels:
         app: billing-db
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: billing-db
           image: postgres:13-bullseye
           ports:
-            - containerPort: 5432
+            - name: postgres
+              containerPort: 5432
           env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
             - name: POSTGRES_USER
               valueFrom: { secretKeyRef: { name: billing-db-secret, key: POSTGRES_USER } }
             - name: POSTGRES_PASSWORD
@@ -42,16 +53,26 @@ spec:
           volumeMounts:
             - name: billing-db-data
               mountPath: /var/lib/postgresql/data
-              subPath: pgdata
           readinessProbe:
-            exec: { command: ["pg_isready", "-U", "$(POSTGRES_USER)"] }
+            exec: { command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""] }
             initialDelaySeconds: 5
             periodSeconds: 5
+          livenessProbe:
+            exec: { command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""] }
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
   volumeClaimTemplates:
     - metadata:
         name: billing-db-data
       spec:
+        storageClassName: nfs-static
         accessModes: ["ReadWriteOnce"]
+        selector:
+          matchLabels:
+            volume-for: billing-db
         resources:
           requests:
             storage: 1Gi
