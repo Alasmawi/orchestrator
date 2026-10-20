@@ -409,13 +409,13 @@ the ones from `play-with-containers`: `debian:bookworm-slim`, a venv, and a non-
 ## Verification
 
 The full stack was run on real VirtualBox VMs (Apple Silicon host, arm64 guests, K3s
-`v1.36.5+k3s1`). It used locally built images imported into containerd in place of the Docker Hub
-pull, and everything else exactly as committed.
+`v1.36.5+k3s1`), from a clean `./orchestrator.sh create` that pulled the app images from Docker
+Hub (`alasmawi/*:latest`). Everything else ran exactly as committed.
 
 | Check | Result |
 |---|---|
 | `vagrant up` → `kubectl get nodes` | ✅ `master` and `agent` Ready on `192.168.56.21` / `.22` |
-| `./orchestrator.sh deploy` | ✅ every resource applied, all 6 workloads rolled out |
+| `./orchestrator.sh create` | ✅ `cluster created`, all 6 workloads rolled out with 0 restarts |
 | Pods spread over both nodes | ✅ cross-node pod traffic works (flannel on the host-only NIC) |
 | `POST /api/movies` via Ingress, `GET` via NodePort on the agent | ✅ same data from both entry points |
 | `POST /api/billing` → row in `billing-db.orders` | ✅ `20 \| 99 \| 250.00` |
