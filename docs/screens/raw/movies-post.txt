@@ -1,0 +1,4 @@
+$ curl -X POST http://192.168.56.21:3000/api/movies/ -d '{"title": "A new movie", "description": "Very short description"}'
+HTTP 201
+{"description":"Very short description","id":1,"title":"A new movie"}
+

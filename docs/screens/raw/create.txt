@@ -1,0 +1,13 @@
+$ ./orchestrator.sh create
+...
+==> ~/.kube/config -> /Users/asmawi/code/orchestrator/.kube/config (default namespace: crud-master)
+==> waiting for both nodes to be Ready
+==> namespace, storage and secrets
+==> databases and message queue
+==> applications
+==> autoscalers
+==> waiting for every workload to become ready
+deployment "rabbit-queue" successfully rolled out
+deployment "inventory-app" successfully rolled out
+deployment "api-gateway-app" successfully rolled out
+cluster created

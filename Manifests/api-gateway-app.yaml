@@ -53,7 +53,8 @@ spec:
             requests: { cpu: "100m", memory: "128Mi" }
             limits: { cpu: "300m", memory: "256Mi" }
 ---
-# NodePort: reachable on <any-node-ip>:30000 from the host.
+# LoadBalancer (K3s ServiceLB): reachable on <any-node-ip>:3000 from the host,
+# plus the NodePort <any-node-ip>:30000 every LoadBalancer Service also gets.
 apiVersion: v1
 kind: Service
 metadata:
@@ -61,7 +62,7 @@ metadata:
   namespace: crud-master
   labels: { app: api-gateway-app }
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
     app: api-gateway-app
   ports:

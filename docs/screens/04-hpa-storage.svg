@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1451" height="302" viewBox="0 0 1451 302" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="12.5">
+<rect width="1451" height="302" fill="#0E0F12"/>
+<rect x="0.5" y="0.5" width="1450" height="301" fill="none" stroke="rgba(239,233,221,.14)"/>
+<rect x="1" y="1" width="1449" height="33" fill="#1B1D23"/>
+<line x1="0" y1="34" x2="1451" y2="34" stroke="rgba(239,233,221,.14)"/>
+<rect x="14" y="13" width="9" height="9" fill="#B0122B"/>
+<rect x="29" y="13" width="9" height="9" fill="#5C5E66"/>
+<rect x="44" y="13" width="9" height="9" fill="#5C5E66"/>
+<text x="66" y="21.5" fill="#8D8F98" font-size="11" letter-spacing="1.4">AUTOSCALING AND STORAGE</text>
+<text x="1437" y="21.5" fill="#5C5E66" font-size="11" text-anchor="end">abdulla@alasmawi</text>
+<text x="20" y="66.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">kubectl get hpa</tspan></text>
+<text x="20" y="84.5" fill="#A3A4AB" xml:space="preserve">NAME              REFERENCE                    TARGETS       MINPODS   MAXPODS   REPLICAS   AGE</text>
+<text x="20" y="102.5" fill="#A3A4AB" xml:space="preserve">api-gateway-app   Deployment/api-gateway-app   cpu: 1%/60%   1         3         1          2m28s</text>
+<text x="20" y="120.5" fill="#A3A4AB" xml:space="preserve">inventory-app     Deployment/inventory-app     cpu: 1%/60%   1         3         1          2m28s</text>
+<text x="20" y="138.5" fill="#A3A4AB" xml:space="preserve"></text>
+<text x="20" y="156.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">kubectl get pvc,pv</tspan></text>
+<text x="20" y="174.5" fill="#A3A4AB" xml:space="preserve">NAME                                                     STATUS   VOLUME            CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE</text>
+<text x="20" y="192.5" fill="#A3A4AB" xml:space="preserve">persistentvolumeclaim/billing-db-data-billing-db-0       <tspan fill="#EFE9DD" font-weight="700">Bound</tspan>    billing-db-pv     1Gi        RWO            nfs-static     &lt;unset&gt;                 2m29s</text>
+<text x="20" y="210.5" fill="#A3A4AB" xml:space="preserve">persistentvolumeclaim/inventory-db-data-inventory-db-0   <tspan fill="#EFE9DD" font-weight="700">Bound</tspan>    inventory-db-pv   1Gi        RWO            nfs-static     &lt;unset&gt;                 2m29s</text>
+<text x="20" y="228.5" fill="#A3A4AB" xml:space="preserve"></text>
+<text x="20" y="246.5" fill="#A3A4AB" xml:space="preserve">NAME                               CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                                          STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE</text>
+<text x="20" y="264.5" fill="#A3A4AB" xml:space="preserve">persistentvolume/billing-db-pv     1Gi        RWO            Retain           <tspan fill="#EFE9DD" font-weight="700">Bound</tspan>    crud-master/billing-db-data-billing-db-0       nfs-static     &lt;unset&gt;                          2m30s</text>
+<text x="20" y="282.5" fill="#A3A4AB" xml:space="preserve">persistentvolume/inventory-db-pv   1Gi        RWO            Retain           <tspan fill="#EFE9DD" font-weight="700">Bound</tspan>    crud-master/inventory-db-data-inventory-db-0   nfs-static     &lt;unset&gt;                          2m30s</text>
+</svg>

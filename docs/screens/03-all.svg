@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1044" height="698" viewBox="0 0 1044 698" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="12.5">
+<rect width="1044" height="698" fill="#0E0F12"/>
+<rect x="0.5" y="0.5" width="1043" height="697" fill="none" stroke="rgba(239,233,221,.14)"/>
+<rect x="1" y="1" width="1042" height="33" fill="#1B1D23"/>
+<line x1="0" y1="34" x2="1044" y2="34" stroke="rgba(239,233,221,.14)"/>
+<rect x="14" y="13" width="9" height="9" fill="#B0122B"/>
+<rect x="29" y="13" width="9" height="9" fill="#5C5E66"/>
+<rect x="44" y="13" width="9" height="9" fill="#5C5E66"/>
+<text x="66" y="21.5" fill="#8D8F98" font-size="11" letter-spacing="1.4">KUBECTL GET ALL</text>
+<text x="1030" y="21.5" fill="#5C5E66" font-size="11" text-anchor="end">abdulla@alasmawi</text>
+<text x="20" y="66.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">kubectl get all</tspan></text>
+<text x="20" y="84.5" fill="#A3A4AB" xml:space="preserve">NAME                                   READY   STATUS    RESTARTS   AGE</text>
+<text x="20" y="102.5" fill="#A3A4AB" xml:space="preserve">pod/api-gateway-app-6579695fc9-j2wxt   <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     <tspan fill="#EFE9DD" font-weight="700">Running</tspan>   0          2m28s</text>
+<text x="20" y="120.5" fill="#A3A4AB" xml:space="preserve">pod/billing-app-0                      <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     <tspan fill="#EFE9DD" font-weight="700">Running</tspan>   0          2m29s</text>
+<text x="20" y="138.5" fill="#A3A4AB" xml:space="preserve">pod/billing-db-0                       <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     <tspan fill="#EFE9DD" font-weight="700">Running</tspan>   0          2m29s</text>
+<text x="20" y="156.5" fill="#A3A4AB" xml:space="preserve">pod/inventory-app-778b4b575b-ksgrl     <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     <tspan fill="#EFE9DD" font-weight="700">Running</tspan>   0          2m29s</text>
+<text x="20" y="174.5" fill="#A3A4AB" xml:space="preserve">pod/inventory-db-0                     <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     <tspan fill="#EFE9DD" font-weight="700">Running</tspan>   0          2m29s</text>
+<text x="20" y="192.5" fill="#A3A4AB" xml:space="preserve">pod/rabbit-queue-b67fc7985-2jgnz       <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     <tspan fill="#EFE9DD" font-weight="700">Running</tspan>   0          2m29s</text>
+<text x="20" y="210.5" fill="#A3A4AB" xml:space="preserve"></text>
+<text x="20" y="228.5" fill="#A3A4AB" xml:space="preserve">NAME                      TYPE           CLUSTER-IP      EXTERNAL-IP                   PORT(S)              AGE</text>
+<text x="20" y="246.5" fill="#A3A4AB" xml:space="preserve">service/api-gateway-app   LoadBalancer   10.43.82.139    192.168.56.21,192.168.56.22   3000:30000/TCP       2m28s</text>
+<text x="20" y="264.5" fill="#A3A4AB" xml:space="preserve">service/billing-app       ClusterIP      None            <tspan fill="#F2A93B" font-weight="400">&lt;none&gt;</tspan>                        8080/TCP             2m29s</text>
+<text x="20" y="282.5" fill="#A3A4AB" xml:space="preserve">service/billing-db        ClusterIP      None            <tspan fill="#F2A93B" font-weight="400">&lt;none&gt;</tspan>                        5432/TCP             2m29s</text>
+<text x="20" y="300.5" fill="#A3A4AB" xml:space="preserve">service/inventory-app     ClusterIP      10.43.46.111    <tspan fill="#F2A93B" font-weight="400">&lt;none&gt;</tspan>                        8080/TCP             2m29s</text>
+<text x="20" y="318.5" fill="#A3A4AB" xml:space="preserve">service/inventory-db      ClusterIP      None            <tspan fill="#F2A93B" font-weight="400">&lt;none&gt;</tspan>                        5432/TCP             2m29s</text>
+<text x="20" y="336.5" fill="#A3A4AB" xml:space="preserve">service/rabbit-queue      ClusterIP      10.43.220.169   <tspan fill="#F2A93B" font-weight="400">&lt;none&gt;</tspan>                        5672/TCP,15672/TCP   2m29s</text>
+<text x="20" y="354.5" fill="#A3A4AB" xml:space="preserve"></text>
+<text x="20" y="372.5" fill="#A3A4AB" xml:space="preserve">NAME                              READY   UP-TO-DATE   AVAILABLE   AGE</text>
+<text x="20" y="390.5" fill="#A3A4AB" xml:space="preserve">deployment.apps/api-gateway-app   <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     1            1           2m28s</text>
+<text x="20" y="408.5" fill="#A3A4AB" xml:space="preserve">deployment.apps/inventory-app     <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     1            1           2m29s</text>
+<text x="20" y="426.5" fill="#A3A4AB" xml:space="preserve">deployment.apps/rabbit-queue      <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     1            1           2m29s</text>
+<text x="20" y="444.5" fill="#A3A4AB" xml:space="preserve"></text>
+<text x="20" y="462.5" fill="#A3A4AB" xml:space="preserve">NAME                                         DESIRED   CURRENT   READY   AGE</text>
+<text x="20" y="480.5" fill="#A3A4AB" xml:space="preserve">replicaset.apps/api-gateway-app-6579695fc9   1         1         1       2m28s</text>
+<text x="20" y="498.5" fill="#A3A4AB" xml:space="preserve">replicaset.apps/inventory-app-778b4b575b     1         1         1       2m29s</text>
+<text x="20" y="516.5" fill="#A3A4AB" xml:space="preserve">replicaset.apps/rabbit-queue-b67fc7985       1         1         1       2m29s</text>
+<text x="20" y="534.5" fill="#A3A4AB" xml:space="preserve"></text>
+<text x="20" y="552.5" fill="#A3A4AB" xml:space="preserve">NAME                            READY   AGE</text>
+<text x="20" y="570.5" fill="#A3A4AB" xml:space="preserve">statefulset.apps/billing-app    <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     2m29s</text>
+<text x="20" y="588.5" fill="#A3A4AB" xml:space="preserve">statefulset.apps/billing-db     <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     2m29s</text>
+<text x="20" y="606.5" fill="#A3A4AB" xml:space="preserve">statefulset.apps/inventory-db   <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     2m29s</text>
+<text x="20" y="624.5" fill="#A3A4AB" xml:space="preserve"></text>
+<text x="20" y="642.5" fill="#A3A4AB" xml:space="preserve">NAME                                                  REFERENCE                    TARGETS       MINPODS   MAXPODS   REPLICAS   AGE</text>
+<text x="20" y="660.5" fill="#A3A4AB" xml:space="preserve">horizontalpodautoscaler.autoscaling/api-gateway-app   Deployment/api-gateway-app   cpu: 1%/60%   1         3         1          2m28s</text>
+<text x="20" y="678.5" fill="#A3A4AB" xml:space="preserve">horizontalpodautoscaler.autoscaling/inventory-app     Deployment/inventory-app     cpu: 1%/60%   1         3         1          2m28s</text>
+</svg>

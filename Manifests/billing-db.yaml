@@ -37,7 +37,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: billing-db
-          image: postgres:13-bullseye
+          image: __DOCKERHUB_USERNAME__/billing-db:__IMAGE_TAG__
           ports:
             - name: postgres
               containerPort: 5432

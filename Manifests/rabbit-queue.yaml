@@ -18,16 +18,16 @@ spec:
     spec:
       containers:
         - name: rabbit-queue
-          image: rabbitmq:3-management-alpine
+          image: __DOCKERHUB_USERNAME__/rabbit-queue:__IMAGE_TAG__
           ports:
             - name: amqp
               containerPort: 5672
             - name: management
               containerPort: 15672
           env:
-            - name: RABBITMQ_DEFAULT_USER
+            - name: RABBITMQ_USER
               valueFrom: { secretKeyRef: { name: rabbitmq-secret, key: RABBITMQ_USER } }
-            - name: RABBITMQ_DEFAULT_PASS
+            - name: RABBITMQ_PASSWORD
               valueFrom: { secretKeyRef: { name: rabbitmq-secret, key: RABBITMQ_PASSWORD } }
           readinessProbe:
             exec: { command: ["rabbitmq-diagnostics", "-q", "check_port_connectivity"] }

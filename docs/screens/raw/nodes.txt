@@ -1,0 +1,4 @@
+$ kubectl get nodes -A
+NAME     STATUS   ROLES           AGE     VERSION
+agent    Ready    <none>          2m31s   v1.36.5+k3s1
+master   Ready    control-plane   4m9s    v1.36.5+k3s1

@@ -1,8 +1,11 @@
+import logging
 import os
+import time
 
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import URL
+from sqlalchemy.exc import OperationalError
 
 db = SQLAlchemy()
 
@@ -36,7 +39,14 @@ def create_app():
     def health():
         return jsonify({"status": "ok"}), 200
 
+    # The database may still be starting (or just moved nodes): wait instead of crashing.
     with app.app_context():
-        db.create_all()
+        while True:
+            try:
+                db.create_all()
+                break
+            except OperationalError:
+                logging.getLogger("inventory-db").warning("inventory-db not reachable yet, retrying in 3s...")
+                time.sleep(3)
 
     return app

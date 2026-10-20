@@ -1,0 +1,8 @@
+$ kubectl get pvc,pv
+NAME                                                     STATUS   VOLUME            CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/billing-db-data-billing-db-0       Bound    billing-db-pv     1Gi        RWO            nfs-static     <unset>                 2m29s
+persistentvolumeclaim/inventory-db-data-inventory-db-0   Bound    inventory-db-pv   1Gi        RWO            nfs-static     <unset>                 2m29s
+
+NAME                               CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                                          STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+persistentvolume/billing-db-pv     1Gi        RWO            Retain           Bound    crud-master/billing-db-data-billing-db-0       nfs-static     <unset>                          2m30s
+persistentvolume/inventory-db-pv   1Gi        RWO            Retain           Bound    crud-master/inventory-db-data-inventory-db-0   nfs-static     <unset>                          2m30s

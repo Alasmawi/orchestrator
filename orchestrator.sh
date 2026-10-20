@@ -54,11 +54,29 @@ wait_for_nodes() {
     kubectl wait --for=condition=Ready node --all --timeout=180s
 }
 
-# App manifests reference __DOCKERHUB_USERNAME__/<app>:__IMAGE_TAG__ so no
-# account name is hard-coded; everything else is applied as-is.
+# Workload manifests reference __DOCKERHUB_USERNAME__/<image>:__IMAGE_TAG__
+# so no account name is hard-coded.
 render() {
     sed -e "s|__DOCKERHUB_USERNAME__|${DOCKERHUB_USERNAME}|g" \
         -e "s|__IMAGE_TAG__|${IMAGE_TAG}|g" "$1"
+}
+
+# Make plain `kubectl ...` work from the host: default the context to the
+# project namespace, and link ~/.kube/config to this cluster's kubeconfig
+# (a symlink, so it stays valid across destroy/create). An existing
+# ~/.kube/config that isn't ours is never touched.
+configure_kubectl() {
+    kubectl config set-context --current --namespace="$NAMESPACE" >/dev/null
+    local target="$HOME/.kube/config"
+    if [ "$(readlink "$target" 2>/dev/null)" = "$KUBECONFIG" ]; then
+        return
+    elif [ ! -e "$target" ] && [ ! -L "$target" ]; then
+        mkdir -p "$HOME/.kube"
+        ln -s "$KUBECONFIG" "$target"
+        log "~/.kube/config -> $KUBECONFIG (default namespace: $NAMESPACE)"
+    else
+        log "~/.kube/config already exists and was left alone; run: export KUBECONFIG=$KUBECONFIG"
+    fi
 }
 
 deploy_workloads() {
@@ -70,9 +88,9 @@ deploy_workloads() {
     ./Scripts/apply-secrets.sh
 
     log "databases and message queue"
-    kubectl apply -f Manifests/inventory-db.yaml
-    kubectl apply -f Manifests/billing-db.yaml
-    kubectl apply -f Manifests/rabbit-queue.yaml
+    for manifest in inventory-db billing-db rabbit-queue; do
+        render "Manifests/${manifest}.yaml" | kubectl apply -f -
+    done
 
     log "applications"
     for manifest in inventory-app billing-app api-gateway-app; do
@@ -107,6 +125,7 @@ case "$1" in
         require vagrant VBoxManage kubectl
         load_env
         vagrant up
+        configure_kubectl
         deploy_workloads
         echo "cluster created"
         ;;

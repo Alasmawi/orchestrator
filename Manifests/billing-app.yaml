@@ -33,15 +33,6 @@ spec:
       labels:
         app: billing-app
     spec:
-      initContainers:
-        - name: wait-for-deps
-          image: busybox:1.36
-          command:
-            - sh
-            - -c
-            - |
-              until nc -z -w 2 billing-db 5432; do echo waiting for billing-db; sleep 2; done
-              until nc -z -w 2 rabbit-queue 5672; do echo waiting for rabbit-queue; sleep 2; done
       containers:
         - name: billing-app
           image: __DOCKERHUB_USERNAME__/billing-app:__IMAGE_TAG__

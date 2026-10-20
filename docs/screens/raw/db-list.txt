@@ -1,0 +1,11 @@
+$ kubectl exec pods/billing-db-0 -- sudo -i -u postgres psql -c '\l'
+                                               List of databases
+    Name    |    Owner     | Encoding  | Collate | Ctype | ICU Locale | Locale Provider |   Access privileges   
+------------+--------------+-----------+---------+-------+------------+-----------------+-----------------------
+ billing_db | billing_user | SQL_ASCII | C       | C     |            | libc            | 
+ postgres   | postgres     | SQL_ASCII | C       | C     |            | libc            | 
+ template0  | postgres     | SQL_ASCII | C       | C     |            | libc            | =c/postgres          +
+            |              |           |         |       |            |                 | postgres=CTc/postgres
+ template1  | postgres     | SQL_ASCII | C       | C     |            | libc            | =c/postgres          +
+            |              |           |         |       |            |                 | postgres=CTc/postgres
+(4 rows)

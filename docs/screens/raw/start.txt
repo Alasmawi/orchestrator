@@ -1,0 +1,6 @@
+$ ./orchestrator.sh start
+==> master: Booting VM...
+==> master: Machine already provisioned. Run `vagrant provision` or use the `--provision`
+==> agent: Booting VM...
+==> agent: Machine already provisioned. Run `vagrant provision` or use the `--provision`
+cluster started

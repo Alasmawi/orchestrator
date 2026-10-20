@@ -1,0 +1,5 @@
+$ kubectl scale statefulset billing-app --replicas=0 && kubectl wait --for=delete pod/billing-app-0 --timeout=60s; kubectl get statefulset billing-app
+statefulset.apps/billing-app scaled
+pod/billing-app-0 condition met
+NAME          READY   AGE
+billing-app   0/0     3m3s

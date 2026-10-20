@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds the three application images from Dockerfiles/ and pushes them to
+# Builds all six component images from Dockerfiles/ and pushes them to
 # Docker Hub as $DOCKERHUB_USERNAME/<app>:$IMAGE_TAG (both read from .env).
 #
 # Images are built for the host's architecture by default, which matches the
@@ -19,7 +19,7 @@ fi
 : "${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME must be set in .env}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 
-for app in inventory-app billing-app api-gateway-app; do
+for app in inventory-db billing-db rabbit-queue inventory-app billing-app api-gateway-app; do
     image="${DOCKERHUB_USERNAME}/${app}:${IMAGE_TAG}"
     echo "==> ${image}"
     if [ -n "${PLATFORMS:-}" ]; then

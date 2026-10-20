@@ -1,0 +1,4 @@
+$ curl -X POST http://192.168.56.21:3000/api/billing/ -d '{"user_id": "22", "number_of_items": "10", "total_amount": "50"}'
+HTTP 200
+{"message":"Message posted"}
+

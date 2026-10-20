@@ -16,10 +16,6 @@ spec:
       labels:
         app: inventory-app
     spec:
-      initContainers:
-        - name: wait-for-db
-          image: busybox:1.36
-          command: ["sh", "-c", "until nc -z -w 2 inventory-db 5432; do echo waiting for inventory-db; sleep 2; done"]
       containers:
         - name: inventory-app
           image: __DOCKERHUB_USERNAME__/inventory-app:__IMAGE_TAG__

@@ -1,0 +1,5 @@
+$ kubectl scale statefulset billing-app --replicas=1 && kubectl wait --for=condition=Ready pod/billing-app-0 --timeout=120s; kubectl get statefulset billing-app
+statefulset.apps/billing-app scaled
+pod/billing-app-0 condition met
+NAME          READY   AGE
+billing-app   1/1     3m17s

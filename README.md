@@ -1,90 +1,43 @@
-<div align="center">
-
 # orchestrator
 
-**A microservices architecture deployed on a two-node K3s cluster, provisioned with Vagrant and driven by one script.**
+A movie-inventory and billing platform split into six containers. They run on a two-node K3s cluster
+built by Vagrant, from images on Docker Hub, and one script drives all of it:
+`./orchestrator.sh create | start | stop`.
 
-![K3s](https://img.shields.io/badge/K3s-2_nodes-FFC61C?logo=k3s&logoColor=black)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-manifests-326CE5?logo=kubernetes&logoColor=white)
-![Vagrant](https://img.shields.io/badge/Vagrant-VirtualBox-1868F2?logo=vagrant&logoColor=white)
-![Docker Hub](https://img.shields.io/badge/Docker_Hub-images-2496ED?logo=docker&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13-4169E1?logo=postgresql&logoColor=white)
-![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3-FF6600?logo=rabbitmq&logoColor=white)
+<p align="center"><img src="docs/architecture.svg" alt="Deployed architecture: host, two K3s nodes, the crud-master namespace with six components, secrets and NFS storage" width="100%"></p>
 
-[Architecture](#architecture) ·
+**Contents**
+[Components](#components) ·
 [Quick start](#quick-start) ·
 [Configuration](#configuration) ·
 [Usage](#usage) ·
+[Proof of state](#proof-of-state) ·
 [How it meets the spec](#how-it-meets-the-spec) ·
-[Verification](#verification) ·
-[Audit cheat sheet](#audit-cheat-sheet) ·
+[Audit runbook](#audit-runbook) ·
+[Concepts](#concepts) ·
 [Troubleshooting](#troubleshooting)
-
-</div>
 
 ---
 
-## Overview
+## Components
 
-Six containers make up a small movie-inventory and billing platform:
+| Component | Does | Kind | Port | Scaling | Storage | Image |
+|---|---|---|---|---|---|---|
+| **api-gateway-app** | Entry point. Proxies `/api/movies` to inventory-app, publishes `/api/billing` to RabbitMQ | `Deployment` + `HPA` | `3000` | 1 → 3 at 60% CPU | | `alasmawi/api-gateway-app` |
+| **inventory-app** | Movies CRUD API (Flask + SQLAlchemy) | `Deployment` + `HPA` | `8080` | 1 → 3 at 60% CPU | | `alasmawi/inventory-app` |
+| **billing-app** | Consumes `billing_queue`, writes orders to billing-db | `StatefulSet` | `8080` | 1 | | `alasmawi/billing-app` |
+| **rabbit-queue** | RabbitMQ broker holding `billing_queue` | `Deployment` | `5672` (UI `15672`) | 1 | | `alasmawi/rabbit-queue` |
+| **inventory-db** | PostgreSQL 15, database `movies_db`, table `movies` | `StatefulSet` | `5432` | 1 | 1 Gi NFS PV | `alasmawi/inventory-db` |
+| **billing-db** | PostgreSQL 15, database `billing_db`, table `orders` | `StatefulSet` | `5432` | 1 | 1 Gi NFS PV | `alasmawi/billing-db` |
 
-| Component | What it does | Kubernetes kind | Port | Scaling | Storage |
-|---|---|---|---|---|---|
-| **api-gateway-app** | Public entry point. Proxies `/api/movies` to inventory-app and publishes `/api/billing` to RabbitMQ | `Deployment` + `HPA` | `3000` | 1 → 3 pods at 60% CPU | none |
-| **inventory-app** | Movies CRUD API (Flask + SQLAlchemy) | `Deployment` + `HPA` | `8080` | 1 → 3 pods at 60% CPU | none |
-| **billing-app** | Consumes `billing_queue`, writes orders to billing-db | `StatefulSet` | `8080` | 1 pod | none |
-| **rabbit-queue** | RabbitMQ broker holding `billing_queue` | `Deployment` | `5672` (`15672` UI) | 1 pod | none |
-| **inventory-db** | PostgreSQL, `movies` table | `StatefulSet` | `5432` | 1 pod | 1 Gi NFS PV |
-| **billing-db** | PostgreSQL, `orders` table | `StatefulSet` | `5432` | 1 pod | 1 Gi NFS PV |
-
-All of them run in the `crud-master` namespace. The three application images are built from
-[`Dockerfiles/`](Dockerfiles) and pulled from Docker Hub. PostgreSQL and RabbitMQ use their official
-images.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    user(["Client<br/>curl / Postman"])
-    kubectl(["kubectl<br/>.kube/config"])
-
-    subgraph host["Host machine · VirtualBox host-only network 192.168.56.0/24"]
-        subgraph master["VM master · 192.168.56.21 · K3s server"]
-            api["kube-apiserver :6443"]
-            traefik["Traefik Ingress :80"]
-            nfs[("NFS export<br/>/srv/nfs/k3s")]
-        end
-        subgraph agent["VM agent · 192.168.56.22 · K3s agent"]
-            kubelet["kubelet"]
-        end
-
-        subgraph ns["Namespace crud-master · pods scheduled on either node"]
-            gw["api-gateway-app<br/>Deployment · HPA 1-3 @ 60% CPU<br/>:3000"]
-            inv["inventory-app<br/>Deployment · HPA 1-3 @ 60% CPU<br/>:8080"]
-            mq["rabbit-queue<br/>Deployment<br/>:5672 · :15672"]
-            bill["billing-app<br/>StatefulSet<br/>:8080"]
-            invdb[("inventory-db<br/>StatefulSet · PostgreSQL<br/>:5432")]
-            billdb[("billing-db<br/>StatefulSet · PostgreSQL<br/>:5432")]
-            sec{{"Secrets<br/>inventory-db · billing-db · rabbitmq"}}
-        end
-    end
-
-    kubectl -->|HTTPS| api
-    user -->|"http://node-ip/api"| traefik --> gw
-    user -->|"http://node-ip:30000 NodePort"| gw
-    gw -->|"HTTP /api/movies"| inv
-    gw -->|"AMQP publish billing_queue"| mq
-    mq -->|consume| bill
-    inv -->|SQL| invdb
-    bill -->|SQL| billdb
-    invdb -. "PV inventory-db-pv" .-> nfs
-    billdb -. "PV billing-db-pv" .-> nfs
-    sec -. secretKeyRef .-> ns
-```
+Every image is built from [`Dockerfiles/`](Dockerfiles), which holds my own `play-with-containers`
+solution (Debian base images, non-root apps), and is pushed to my Docker Hub account. The cluster
+doesn't use any third-party application images.
 
 ### Request flows
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0E0F12", "primaryColor": "#15171C", "primaryTextColor": "#EFE9DD", "primaryBorderColor": "#5C5E66", "lineColor": "#A3A4AB", "actorBkg": "#15171C", "actorBorder": "#B0122B", "actorTextColor": "#EFE9DD", "signalColor": "#A3A4AB", "signalTextColor": "#EFE9DD", "labelBoxBkgColor": "#1B1D23", "labelTextColor": "#EFE9DD", "noteBkgColor": "#1B1D23", "noteTextColor": "#EFE9DD", "noteBorderColor": "#B0122B", "sequenceNumberColor": "#0E0F12", "fontFamily": "JetBrains Mono, Menlo, monospace"}}}%%
 sequenceDiagram
     autonumber
     participant C as Client
@@ -95,405 +48,449 @@ sequenceDiagram
     participant B as billing-app
     participant BDB as billing-db
 
-    rect rgba(50, 108, 229, 0.08)
-    note over C,IDB: Synchronous: movies CRUD
-    C->>G: GET/POST/PUT/DELETE /api/movies
-    G->>I: same request over HTTP (inventory-app:8080)
-    I->>IDB: SQL (inventory-db:5432)
-    IDB-->>I: rows
-    I-->>G: JSON
-    G-->>C: JSON
-    end
+    Note over C,IDB: Synchronous: movies CRUD
+    C->>G: POST /api/movies/
+    G->>I: HTTP inventory-app:8080
+    I->>IDB: INSERT INTO movies (inventory-db:5432)
+    I-->>G: 201 + movie JSON
+    G-->>C: 201 + movie JSON
 
-    rect rgba(255, 102, 0, 0.08)
-    note over C,BDB: Asynchronous: billing
-    C->>G: POST /api/billing
-    G->>Q: publish to billing_queue (durable)
+    Note over C,BDB: Asynchronous: billing
+    C->>G: POST /api/billing/
+    G->>Q: publish to billing_queue (durable, persistent)
     G-->>C: 200 "Message posted"
-    Q->>B: deliver message
-    B->>BDB: INSERT INTO orders
-    B-->>Q: ack
-    end
+    Q->>B: deliver when billing-app is running
+    B->>BDB: INSERT INTO orders (billing-db:5432)
+    B-->>Q: ack, so the message is removed
 ```
 
-Because billing goes through the queue, `POST /api/billing` keeps answering while billing-app is
-down. Messages wait in `billing_queue` and are processed once billing-app comes back.
+The billing call answers `200` as soon as RabbitMQ has the message. While billing-app is stopped,
+messages stay in `billing_queue`, and they're written to billing-db once billing-app is back. The
+audit checks exactly this, with `user_id` 22.
 
-### Networking at a glance
+### Networking
 
-| Who | Reaches | Through |
+| From | To | Through |
 |---|---|---|
-| Host → cluster API | `192.168.56.21:6443` | `.kube/config`, written by the master during provisioning |
-| Host → gateway | `http://192.168.56.21/api/...` | Traefik `Ingress` bundled with K3s |
-| Host → gateway | `http://192.168.56.2{1,2}:30000/api/...` | `NodePort` Service |
-| Pod → pod | `inventory-app:8080`, `rabbit-queue:5672`, `inventory-db:5432`, `billing-db:5432` | ClusterIP / headless Services and CoreDNS |
-| Node → node | flannel VXLAN over `192.168.56.0/24` | `--flannel-iface` pinned to the host-only NIC |
+| Host | `192.168.56.21:6443` (API server) | `~/.kube/config` → `.kube/config`, default namespace `crud-master` |
+| Host | `http://192.168.56.21:3000` | Service `type: LoadBalancer`, implemented by K3s ServiceLB on every node |
+| Host | `http://192.168.56.2{1,2}:30000` | the NodePort of the same Service |
+| Host | `http://192.168.56.21/api/...` | Traefik `Ingress` |
+| Pod | `inventory-app:8080`, `rabbit-queue:5672`, `*-db:5432` | ClusterIP and headless Services, resolved by CoreDNS |
+| Node | Node | flannel VXLAN, pinned to the host-only NIC with `--flannel-iface` |
 
 ## Project structure
 
 ```
 .
 ├── orchestrator.sh              # create | start | stop | deploy | status | destroy
-├── Vagrantfile                  # master + agent VMs (bento/ubuntu-22.04, amd64 or arm64)
-├── .env.example                 # every credential and setting the project needs
+├── Vagrantfile                  # master + agent VMs (bento/ubuntu-22.04, amd64 and arm64)
+├── .env.example                 # every credential and setting, as a template
+├── Manifests/                   # one YAML per component or resource
+│   ├── namespace.yaml           #   crud-master
+│   ├── storage.yaml             #   StorageClass nfs-static + 2 NFS PersistentVolumes
+│   ├── inventory-db.yaml        #   headless Service + StatefulSet + volumeClaimTemplate
+│   ├── billing-db.yaml          #   headless Service + StatefulSet + volumeClaimTemplate
+│   ├── rabbit-queue.yaml        #   Deployment + Service
+│   ├── inventory-app.yaml       #   Deployment + ClusterIP Service
+│   ├── inventory-app-hpa.yaml   #   HPA 1..3 at 60% CPU
+│   ├── billing-app.yaml         #   headless Service + StatefulSet
+│   ├── api-gateway-app.yaml     #   Deployment + LoadBalancer Service + Ingress
+│   └── api-gateway-app-hpa.yaml #   HPA 1..3 at 60% CPU
 ├── Scripts/
-│   ├── k3s-master.sh            # NFS server + K3s server, publishes kubeconfig and join token
-│   ├── k3s-agent.sh             # NFS client + K3s agent, joins the master
-│   ├── apply-secrets.sh         # .env → 3 Kubernetes Secrets (never written to disk)
-│   └── build-push.sh            # build the 3 app images and push them to Docker Hub
-├── Manifests/
-│   ├── namespace.yaml           # crud-master namespace
-│   ├── storage.yaml             # StorageClass + 2 NFS PersistentVolumes
-│   ├── inventory-db.yaml        # headless Service + StatefulSet + volumeClaimTemplate
-│   ├── billing-db.yaml          # headless Service + StatefulSet + volumeClaimTemplate
-│   ├── rabbit-queue.yaml        # Deployment + Service
-│   ├── inventory-app.yaml       # Deployment + ClusterIP Service
-│   ├── inventory-app-hpa.yaml   # HPA 1..3 at 60% CPU
-│   ├── billing-app.yaml         # headless Service + StatefulSet
-│   ├── api-gateway-app.yaml     # Deployment + NodePort Service + Ingress
-│   └── api-gateway-app-hpa.yaml # HPA 1..3 at 60% CPU
-└── Dockerfiles/
-    ├── inventory-app/           # Dockerfile + Flask source
-    ├── billing-app/             # Dockerfile + consumer source
-    └── api-gateway-app/         # Dockerfile + Flask source
+│   ├── k3s-master.sh            # NFS server + K3s server; shares kubeconfig and join token
+│   ├── k3s-agent.sh             # NFS client + K3s agent; joins the master
+│   ├── apply-secrets.sh         # .env → 3 Secrets, piped to the API server
+│   ├── build-push.sh            # build the 6 images and push them to Docker Hub
+│   └── audit-check.sh           # runs the audit's hands-on steps, prints PASS/FAIL
+├── Dockerfiles/                 # one directory per image: Dockerfile + source
+│   ├── inventory-db/  billing-db/  rabbit-queue/
+│   └── inventory-app/ billing-app/ api-gateway-app/
+└── docs/                        # README diagrams, screenshots and their generators
 ```
 
-`orchestrator.sh` sits at the root rather than in `Scripts/` so it runs exactly as the spec shows
-(`./orchestrator.sh create`). The helpers it calls live in `Scripts/`.
+The layout follows the subject's tree. There are two additions. `orchestrator.sh` sits at the root so
+it runs exactly as the subject shows it (`./orchestrator.sh create`), and `docs/` holds this
+README's images.
 
 ## Prerequisites
 
 | Tool | Tested with | Why |
 |---|---|---|
-| [VirtualBox](https://www.virtualbox.org/) | 7.2 | hypervisor for the two VMs (7.1+ is needed on Apple Silicon) |
+| [VirtualBox](https://www.virtualbox.org/) | 7.2 | hypervisor for the two VMs (Apple Silicon needs 7.1 or later) |
 | [Vagrant](https://developer.hashicorp.com/vagrant/install) | 2.4 | creates and provisions the VMs |
-| [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.3x | manages the cluster from the host |
-| [Docker](https://docs.docker.com/get-docker/) | 29 | builds and pushes the application images |
-| A [Docker Hub](https://hub.docker.com/) account | | hosts the images the cluster pulls |
+| [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.37 | manages the cluster from the host (`brew install kubectl`) |
+| [Docker](https://docs.docker.com/get-docker/) | 29 | builds and pushes the images |
+| A [Docker Hub](https://hub.docker.com/) account | | the registry the cluster pulls from |
 
-Each VM gets 2 vCPU and 2 GB RAM, so plan for about **4 GB of free memory**. The VMs download K3s
-and container images, so they need internet access.
+The two VMs take 2 vCPU and 2 GB RAM each, so keep about **4 GB** free. They also need internet
+access to download K3s and the images.
 
 ## Quick start
 
-<details open>
-<summary><b>1. Configure</b></summary>
-
 ```bash
-cp .env.example .env
+cp .env.example .env          # 1. set passwords and DOCKERHUB_USERNAME
+docker login                  # 2. sign in to Docker Hub
+./Scripts/build-push.sh       # 3. build and push the 6 images
+./orchestrator.sh create      # 4. VMs + K3s + every workload, about 5-10 minutes
+kubectl get nodes -A          # 5. both nodes Ready
+./Scripts/audit-check.sh      # 6. optional: rehearse the audit
 ```
 
-Fill in real passwords and your Docker Hub username. See [Configuration](#configuration).
-</details>
+`create` does the following:
 
-<details open>
-<summary><b>2. Build and push the images</b></summary>
+1. Boots `master`. It installs the NFS server and the K3s server, then writes the kubeconfig and
+   the join token to `.kube/` through the shared folder.
+2. Boots `agent`. It installs the NFS client and joins the cluster.
+3. Points the kubeconfig's default namespace at `crud-master` and links `~/.kube/config` to it, so
+   plain `kubectl` commands work. An existing `~/.kube/config` is never overwritten.
+4. Applies namespace → storage → secrets → databases → queue → apps → HPAs.
+5. Waits until every workload is ready, then prints `cluster created`.
 
-```bash
-docker login
-./Scripts/build-push.sh
-```
-
-This pushes `$DOCKERHUB_USERNAME/{inventory-app,billing-app,api-gateway-app}:$IMAGE_TAG`. Images
-are built for your machine's CPU architecture, which matches the VMs Vagrant creates on it. For a
-multi-arch image (needs `docker buildx`):
-
-```bash
-PLATFORMS=linux/amd64,linux/arm64 ./Scripts/build-push.sh
-```
-</details>
-
-<details open>
-<summary><b>3. Create the cluster and deploy</b></summary>
-
-```bash
-./orchestrator.sh create
-```
-
-This takes about 5 to 10 minutes on the first run. It:
-
-1. boots `master`, installs the NFS server and the K3s server, and writes `.kube/config` and the join token into the shared folder;
-2. boots `agent`, installs the NFS client and joins it to the master;
-3. applies the namespace, storage, secrets, databases, queue, apps and HPAs, in that order;
-4. waits until every workload reports ready, then prints `cluster created`.
-</details>
-
-<details open>
-<summary><b>4. Check it</b></summary>
-
-```bash
-export KUBECONFIG=$(pwd)/.kube/config
-kubectl get nodes -A
-```
-
-```
-NAME     STATUS   ROLES           AGE   VERSION
-agent    Ready    <none>          12s   v1.36.5+k3s1
-master   Ready    control-plane   67s   v1.36.5+k3s1
-```
-
-```bash
-./orchestrator.sh status
-```
-</details>
+Images are built for the host's CPU, which is also the VMs' CPU. To publish multi-arch images, run
+`PLATFORMS=linux/amd64,linux/arm64 ./Scripts/build-push.sh` (needs `docker buildx`).
 
 ## Configuration
 
-Everything that varies between environments lives in `.env`. That file is gitignored, and
-[`.env.example`](.env.example) is the template.
+All configuration lives in `.env`, which is gitignored. [`.env.example`](.env.example) is the
+template.
 
-| Variable | Used by | Example |
+| Variable | Feeds | Example |
 |---|---|---|
 | `INVENTORY_DB_NAME` / `_USER` / `_PASSWORD` | `inventory-db-secret` → inventory-db, inventory-app | `movies_db` / `inventory_user` / … |
 | `BILLING_DB_NAME` / `_USER` / `_PASSWORD` | `billing-db-secret` → billing-db, billing-app | `billing_db` / `billing_user` / … |
 | `RABBITMQ_USER` / `_PASSWORD` | `rabbitmq-secret` → rabbit-queue, billing-app, api-gateway-app | `billing_mq` / … |
-| `DOCKERHUB_USERNAME` | image names in the app manifests | `jdoe` |
-| `IMAGE_TAG` | image tag in the app manifests (default `latest`) | `v1.0.0` |
+| `DOCKERHUB_USERNAME` | `__DOCKERHUB_USERNAME__` in the workload manifests | `alasmawi` |
+| `IMAGE_TAG` | `__IMAGE_TAG__` in the workload manifests | `latest` |
 
-Fixed infrastructure values are in the [`Vagrantfile`](Vagrantfile): node IPs `192.168.56.21` and
-`192.168.56.22`, and VM sizes.
+The node IPs (`192.168.56.21` and `.22`) and the VM sizes are set in the [`Vagrantfile`](Vagrantfile).
 
 ### Secrets
 
-The spec forbids credentials in any manifest except a Secret manifest. This project goes further:
-**no committed file contains a credential at all.**
-
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0E0F12", "primaryColor": "#15171C", "primaryTextColor": "#EFE9DD", "primaryBorderColor": "#5C5E66", "lineColor": "#A3A4AB", "fontFamily": "JetBrains Mono, Menlo, monospace"}}}%%
 flowchart LR
-    env[".env<br/>(gitignored)"] --> script["Scripts/apply-secrets.sh<br/>kubectl create secret --dry-run -o yaml"]
-    script -->|"piped, never written to disk"| apiserver["kube-apiserver"]
-    apiserver --> s1["inventory-db-secret"] & s2["billing-db-secret"] & s3["rabbitmq-secret"]
+    env[".env (gitignored)"] --> script["Scripts/apply-secrets.sh<br/>kubectl create secret --dry-run -o yaml"]
+    script -->|"piped, never written to disk"| api["kube-apiserver"]
+    api --> s1["inventory-db-secret"] & s2["billing-db-secret"] & s3["rabbitmq-secret"]
     s1 & s2 & s3 -->|"env.valueFrom.secretKeyRef"| pods["Pods"]
 ```
 
-The Secret manifests are generated in memory and piped straight to the API server. Every Deployment
-and StatefulSet reads its credentials with `secretKeyRef`. To inspect one:
+The subject allows credentials only in Secret manifests. This project goes further: the Secret
+manifests are generated in memory and piped straight to the API server, so **no committed file
+contains a credential**. Every workload reads its credentials through `secretKeyRef`:
 
 ```bash
-kubectl -n crud-master get secret inventory-db-secret -o jsonpath='{.data.POSTGRES_USER}' | base64 -d
+kubectl get secrets -o json                                         # what the audit runs
+kubectl get secret billing-db-secret -o jsonpath='{.data.POSTGRES_DB}' | base64 -d
 ```
 
 ## Usage
 
 ### `orchestrator.sh`
 
-| Command | What happens | Output |
+| Command | Does | Prints |
 |---|---|---|
-| `./orchestrator.sh create` | `vagrant up`, then deploy all workloads and wait for them | `cluster created` |
-| `./orchestrator.sh start` | boots the halted VMs. K3s and every workload come back on their own | `cluster started` |
-| `./orchestrator.sh stop` | `vagrant halt`. VMs, volumes and data are kept | `cluster stopped` |
-| `./orchestrator.sh deploy` | re-applies secrets and manifests on a running cluster | `workloads deployed` |
-| `./orchestrator.sh status` | nodes, workloads, HPAs, Services, Ingress and PVCs | |
-| `./orchestrator.sh destroy` | deletes both VMs and `.kube/` | `cluster destroyed` |
+| `create` | `vagrant up`, configures kubectl, deploys everything and waits for it | `cluster created` |
+| `start` | boots halted VMs; K3s and every workload come back by themselves | `cluster started` |
+| `stop` | `vagrant halt`; VMs, volumes and data are kept | `cluster stopped` |
+| `deploy` | re-applies secrets and manifests on a running cluster | `workloads deployed` |
+| `status` | nodes, workloads, HPAs, Services, Ingress and PVCs | |
+| `destroy` | deletes both VMs (including the NFS data) and `.kube/` | `cluster destroyed` |
 
 ### API
 
-The gateway answers on the Ingress (`http://192.168.56.21`) and on the NodePort (`:30000`) of
-either node.
-
 ```bash
-GW=http://192.168.56.21
+GW=http://192.168.56.21:3000      # also :30000 on either node, or http://192.168.56.21/api via Ingress
 
-# Inventory (synchronous)
-curl -s -X POST $GW/api/movies -H 'Content-Type: application/json' \
-     -d '{"title":"Inception","description":"A dream within a dream"}'
-curl -s $GW/api/movies
-curl -s "$GW/api/movies?title=incep"
-curl -s -X PUT $GW/api/movies/1 -H 'Content-Type: application/json' -d '{"description":"Updated"}'
-curl -s -X DELETE $GW/api/movies/1
-curl -s -X DELETE $GW/api/movies
-
-# Billing (asynchronous, through RabbitMQ)
-curl -s -X POST $GW/api/billing -H 'Content-Type: application/json' \
-     -d '{"user_id":"20","number_of_items":"99","total_amount":"250"}'
+curl -X POST $GW/api/movies/ -H 'Content-Type: application/json' \
+     -d '{"title": "A new movie", "description": "Very short description"}'   # 201
+curl $GW/api/movies/                                                          # 200
+curl "$GW/api/movies/?title=new"
+curl -X PUT $GW/api/movies/1 -H 'Content-Type: application/json' -d '{"description": "Updated"}'
+curl -X DELETE $GW/api/movies/1
+curl -X POST $GW/api/billing/ -H 'Content-Type: application/json' \
+     -d '{"user_id": "20", "number_of_items": "99", "total_amount": "250"}'   # 200
 ```
 
-| Method | Path | Result |
+| Method | Path | Returns |
 |---|---|---|
-| `GET` | `/api/movies[?title=…]` | list movies, optionally filtered by title |
-| `POST` | `/api/movies` | create a movie |
-| `DELETE` | `/api/movies` | delete all movies |
-| `GET` / `PUT` / `DELETE` | `/api/movies/{id}` | read, update or delete one movie |
-| `POST` | `/api/billing` | queue an order: `{"message":"Message posted"}` |
-| `GET` | `/health` | gateway liveness |
+| `GET` | `/api/movies[?title=…]` | `200`: every movie, or those whose title contains the filter |
+| `POST` | `/api/movies` | `201`: the created movie |
+| `DELETE` | `/api/movies` | `200`: all movies deleted |
+| `GET` · `PUT` · `DELETE` | `/api/movies/{id}` | `200`, or `404` if the id doesn't exist |
+| `POST` | `/api/billing` | `200` `{"message":"Message posted"}` |
+| `GET` | `/health` | `200`: liveness of the gateway |
 
-The RabbitMQ management UI is available with a port-forward:
+Paths work with or without a trailing slash, like the audit's `.../api/movies/`. For the RabbitMQ
+UI, run `kubectl port-forward svc/rabbit-queue 15672:15672` and open http://localhost:15672.
 
-```bash
-kubectl -n crud-master port-forward svc/rabbit-queue 15672:15672   # http://localhost:15672
-```
+## Proof of state
+
+These are rendered from real output on a cluster built with a clean `./orchestrator.sh create`,
+captured by `CAPTURE_DIR=docs/screens/raw ./Scripts/audit-check.sh`. The raw text is in
+[`docs/screens/raw/`](docs/screens/raw). The `create` and `stop`/`start` captures keep only the
+step and result lines; nothing else is shortened or edited. The auditor checks the live cluster
+anyway, so no video recording is needed.
+
+<details open>
+<summary><b>orchestrator.sh: create, stop, start</b></summary>
+
+![orchestrator.sh create, stop, start](docs/screens/01-orchestrator.svg)
+</details>
+
+<details open>
+<summary><b>Nodes: master and agent connected and Ready</b></summary>
+
+![kubectl get nodes -A](docs/screens/02-nodes.svg)
+</details>
+
+<details>
+<summary><b>Every deployed resource</b></summary>
+
+![kubectl get all](docs/screens/03-all.svg)
+</details>
+
+<details>
+<summary><b>Autoscalers and volumes</b></summary>
+
+![kubectl get hpa, pvc, pv](docs/screens/04-hpa-storage.svg)
+</details>
+
+<details>
+<summary><b>Images from Docker Hub and the three Secrets</b></summary>
+
+![images and secrets](docs/screens/05-images-secrets.svg)
+</details>
+
+<details>
+<summary><b>Inventory API: 201 then 200</b></summary>
+
+![movies API](docs/screens/06-inventory-api.svg)
+</details>
+
+<details>
+<summary><b>Queue resilience: user_id 22 waits while billing-app is stopped</b></summary>
+
+![billing queue resilience](docs/screens/07-queue-resilience.svg)
+</details>
+
+<details open>
+<summary><b>The whole audit, automated</b></summary>
+
+![audit-check.sh summary](docs/screens/08-audit-check.svg)
+</details>
 
 ## How it meets the spec
 
-<details>
-<summary><b>Cluster: two Vagrant VMs running K3s</b></summary>
-
-- `master` runs the K3s **server** (API server, scheduler, controller manager, embedded datastore,
-  plus the bundled CoreDNS, Traefik, metrics-server and local-path provisioner).
-- `agent` runs the K3s **agent** (kubelet, kube-proxy, containerd, flannel) and joins with the
-  token the master writes into the shared `/vagrant` folder.
-- VirtualBox gives every VM the same NAT address (`10.0.2.15`) on its first NIC. Both nodes
-  therefore register with `--node-ip` and run flannel with `--flannel-iface` on the host-only NIC.
-  Without that, pod traffic between the two nodes silently fails.
-- `bento/ubuntu-22.04` publishes amd64 and arm64 VirtualBox builds, so the same Vagrantfile works
-  on Intel and Apple Silicon hosts.
-</details>
-
-<details>
-<summary><b>Deployments that scale on CPU</b></summary>
-
-`api-gateway-app` and `inventory-app` are `Deployment`s with a `HorizontalPodAutoscaler`
-(`autoscaling/v2`, `minReplicas: 1`, `maxReplicas: 3`, `averageUtilization: 60`). Utilization is
-measured against each container's CPU **request** (`100m`). K3s ships metrics-server, so the HPA has
-live data with no extra install.
-
-Watch it scale:
-
-```bash
-kubectl -n crud-master get hpa -w
-# in another terminal: generate load on the gateway
-kubectl -n crud-master run load --rm -it --image=busybox:1.36 --restart=Never -- \
-  sh -c 'while true; do wget -qO- http://api-gateway-app:3000/api/movies >/dev/null; done'
-```
-
-When the load stops, the HPA scales back to 1 after its default 5-minute stabilization window.
-</details>
+| Requirement | Where | How |
+|---|---|---|
+| K3s in Vagrant, 2 VMs: Master, Agent | [`Vagrantfile`](Vagrantfile), [`Scripts/k3s-*.sh`](Scripts) | `master` is the K3s server and `agent` joins it with the shared token |
+| `kubectl` on the host | `orchestrator.sh` `configure_kubectl` | the kubeconfig is linked to `~/.kube/config` with namespace `crud-master` |
+| `orchestrator.sh` create / start / stop | [`orchestrator.sh`](orchestrator.sh) | prints `cluster created` / `cluster started` / `cluster stopped` |
+| Images on Docker Hub, used in the manifests | [`Scripts/build-push.sh`](Scripts/build-push.sh) | all 6 images are `alasmawi/<component>:latest` |
+| One manifest per component | [`Manifests/`](Manifests) | 10 files, listed in [Project structure](#project-structure) |
+| Credentials only in Secrets | [`Scripts/apply-secrets.sh`](Scripts/apply-secrets.sh) | 3 Secrets, `secretKeyRef` everywhere, no credential in any file |
+| api-gateway and inventory-app: Deployment + HPA 1-3 @ 60% | `*-app.yaml`, `*-hpa.yaml` | `autoscaling/v2`, CPU requests `100m` |
+| billing-app: StatefulSet | [`billing-app.yaml`](Manifests/billing-app.yaml) | headless Service, stable pod `billing-app-0` |
+| Databases: StatefulSet + volumes that move | `*-db.yaml`, [`storage.yaml`](Manifests/storage.yaml) | `volumeClaimTemplates` bound to NFS PVs that both nodes can mount |
+| Ports 5432 · 5432 · 8080 · 8080 · 3000 | Services in each manifest | checked by `audit-check.sh` |
+| README | this file | prerequisites, configuration, setup, usage, proof, concepts |
+| **Bonus**: own `play-with-containers` Dockerfiles | [`Dockerfiles/`](Dockerfiles) | all six images, databases and RabbitMQ included |
+| **Bonus**: Ingress, LoadBalancer, audit automation | `api-gateway-app.yaml`, `audit-check.sh` | Traefik `/api`, ServiceLB `:3000`, automated PASS/FAIL checks |
 
 <details>
-<summary><b>StatefulSets: billing-app and both databases</b></summary>
+<summary><b>Why the databases can move between nodes without losing data</b></summary>
 
-- **billing-app** is a `StatefulSet` with a headless Service, so it has a stable identity
-  (`billing-app-0`) and DNS name (`billing-app-0.billing-app`).
-- **inventory-db** and **billing-db** are `StatefulSet`s with `volumeClaimTemplates`. Their PVCs
-  (`inventory-db-data-inventory-db-0`, `billing-db-data-billing-db-0`) belong to the pod's identity
-  and survive pod deletion.
-- Init containers make the apps wait until PostgreSQL and RabbitMQ accept connections, so a cold
-  start doesn't leave pods in CrashLoopBackOff.
-</details>
-
-<details>
-<summary><b>Volumes that move with the database</b></summary>
-
-K3s' default `local-path` storage writes to the node's own disk, which pins a database pod to one
-node forever. Instead, [`Manifests/storage.yaml`](Manifests/storage.yaml) defines two NFS-backed
-`PersistentVolume`s served by the master VM, in a `nfs-static` StorageClass with
-`reclaimPolicy: Retain`. Each StatefulSet's claim selects its own PV by label, so either node can
-mount it.
+K3s' default `local-path` storage writes to the disk of the node that created the volume, which pins
+a database pod to that node for good. Here, each database's `volumeClaimTemplate` selects a
+`PersistentVolume` in the `nfs-static` StorageClass (`reclaimPolicy: Retain`). That PV is a
+directory exported over NFS by the master VM, so whichever node the pod lands on mounts the same
+data.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0E0F12", "primaryColor": "#15171C", "primaryTextColor": "#EFE9DD", "primaryBorderColor": "#5C5E66", "lineColor": "#A3A4AB", "fontFamily": "JetBrains Mono, Menlo, monospace"}}}%%
 flowchart LR
-    pod1["inventory-db-0<br/>(on agent)"] -- "reschedule / drain" --> pod2["inventory-db-0<br/>(on master)"]
-    pod1 & pod2 --> pvc["PVC inventory-db-data-inventory-db-0"] --> pv["PV inventory-db-pv"] --> nfs[("master:/srv/nfs/k3s/inventory-db")]
+    a["inventory-db-0<br/>on agent"] -- "cordon + delete pod" --> b["inventory-db-0<br/>on master"]
+    a & b --> pvc["PVC inventory-db-data-inventory-db-0"] --> pv["PV inventory-db-pv"] --> nfs[("master:/srv/nfs/k3s/inventory-db")]
 ```
 
-Moving a database between nodes is one command. The data stays:
-
 ```bash
-NODE=$(kubectl -n crud-master get pod inventory-db-0 -o jsonpath='{.spec.nodeName}')
-kubectl cordon "$NODE"
-kubectl -n crud-master delete pod inventory-db-0     # recreated on the other node
-kubectl -n crud-master get pod inventory-db-0 -o wide
-curl -s http://192.168.56.21/api/movies              # same movies as before
+NODE=$(kubectl get pod inventory-db-0 -o jsonpath='{.spec.nodeName}')
+kubectl cordon "$NODE" && kubectl delete pod inventory-db-0
+kubectl get pod inventory-db-0 -o wide        # now on the other node
+curl http://192.168.56.21:3000/api/movies/    # same movies
 kubectl uncordon "$NODE"
 ```
 </details>
 
 <details>
-<summary><b>Images on Docker Hub</b></summary>
+<summary><b>Watching the HPA scale</b></summary>
 
-The app manifests reference `__DOCKERHUB_USERNAME__/<app>:__IMAGE_TAG__`. `orchestrator.sh`
-substitutes both from `.env` at apply time, so no account name is hard-coded. The Dockerfiles are
-the ones from `play-with-containers`: `debian:bookworm-slim`, a venv, and a non-root `app` user.
+```bash
+kubectl get hpa -w
+# in a second terminal:
+kubectl run load --rm -it --image=busybox:1.36 --restart=Never -- \
+  sh -c 'while true; do wget -qO- http://api-gateway-app:3000/api/movies >/dev/null; done'
+```
+
+Measured during testing: gateway CPU rose from `1%` to `299%/60%` and the gateway scaled to 3 pods,
+with inventory-app at 2. Utilization is CPU usage ÷ the `100m` request. When the load stops, the
+HPA waits out its 5-minute stabilization window, then scales back to 1.
 </details>
 
-## Verification
-
-The full stack was run on real VirtualBox VMs (Apple Silicon host, arm64 guests, K3s
-`v1.36.5+k3s1`), from a clean `./orchestrator.sh create` that pulled the app images from Docker
-Hub (`alasmawi/*:latest`). Everything else ran exactly as committed.
+<details>
+<summary><b>Other verified behaviour</b></summary>
 
 | Check | Result |
 |---|---|
-| `vagrant up` → `kubectl get nodes` | ✅ `master` and `agent` Ready on `192.168.56.21` / `.22` |
-| `./orchestrator.sh create` | ✅ `cluster created`, all 6 workloads rolled out with 0 restarts |
-| Pods spread over both nodes | ✅ cross-node pod traffic works (flannel on the host-only NIC) |
-| `POST /api/movies` via Ingress, `GET` via NodePort on the agent | ✅ same data from both entry points |
-| `POST /api/billing` → row in `billing-db.orders` | ✅ `20 \| 99 \| 250.00` |
-| PVCs | ✅ both `Bound` to `nfs-static` PVs, data visible under `master:/srv/nfs/k3s` |
-| Cordon node + delete `inventory-db-0` | ✅ pod moved agent → master → agent, movies intact, no failed request |
-| Load on the gateway | ✅ HPAs went `1%` → `299%/60%`, gateway scaled to **3**, inventory to **2** |
-| `./orchestrator.sh stop` then `start` | ✅ `cluster stopped` / `cluster started`, all pods back, data intact |
-| billing-db down while billing is posted | ✅ message waits in the queue, stored once the DB is back, 0 restarts |
-| `grep` for credentials in `Manifests/` | ✅ none: only `secretKeyRef` |
+| Pods spread across both nodes talk to each other | ✅ flannel on the host-only NIC (VirtualBox gives every VM the same NAT IP) |
+| Database pod cordoned off its node and deleted | ✅ rescheduled on the other node, data intact, no failed request |
+| `stop` then `start` | ✅ every pod comes back by itself, data intact |
+| billing-db down while orders are posted | ✅ messages wait in the queue and are stored once the DB is back; billing-app doesn't crash |
+| Special characters in DB passwords | ✅ safe thanks to `URL.create` in the apps and psql variables in the DB entrypoint |
+</details>
 
-## Audit cheat sheet
+## Audit runbook
 
-<details>
-<summary><b>Commands that prove each requirement</b></summary>
+The auditor's steps, the commands that answer them, and the expected result.
+`./Scripts/audit-check.sh` runs every hands-on step and prints PASS/FAIL. Run it before each audit.
 
-```bash
-export KUBECONFIG=$(pwd)/.kube/config
+| # | Audit step | Command | Expected |
+|---|---|---|---|
+| 1 | Clone at the given commit | `git clone … && git reset --hard <sha>` | no `fatal: reference is not a tree` |
+| 2 | Required files and structure | `ls` | `Manifests/ Scripts/ Dockerfiles/ Vagrantfile orchestrator.sh README.md` |
+| 3 | Images from my Docker Hub | `kubectl get pods -o jsonpath='{..image}'` · [hub.docker.com/u/alasmawi](https://hub.docker.com/u/alasmawi) | only `alasmawi/*` |
+| 4 | kubectl installed, 2 nodes Ready | `kubectl get nodes -A` | `master` and `agent`, both `Ready` |
+| 5 | Created by Vagrant | `vagrant status` | `master running`, `agent running` |
+| 6 | create / start / stop | `./orchestrator.sh create`, `stop`, `start` | `cluster created`, `cluster stopped`, `cluster started` |
+| 7 | No credentials in manifests | `grep -rni password Manifests/` | only `secretKeyRef` references |
+| 8 | Secrets hold every credential | `kubectl get secrets -o json` | 3 Secrets: DB user, password and name ×2, RabbitMQ user and password |
+| 9 | All apps deployed | `kubectl get all` | 3 Deployments, 3 StatefulSets, 6 Services, 2 HPAs |
+| 10 | POST `/api/movies/` | Postman → `http://192.168.56.21:3000/api/movies/` | **201** |
+| 11 | GET `/api/movies/` | same URL, `GET` | **200**, JSON with the new movie |
+| 12 | POST `/api/billing/` user 20 | `http://192.168.56.21:3000/api/billing/` | **200** |
+| 13 | Stop billing-app | `kubectl scale statefulset billing-app --replicas=0` | `kubectl get pods`: no `billing-app-0` |
+| 14 | POST `/api/billing/` user 22 | same URL | **200** while billing-app is down |
+| 15 | Billing database listed | `kubectl exec -it pods/billing-db-0 -- sh` → `sudo -i -u postgres` → `psql` → `\l` | `billing_db` |
+| 16 | Orders | `\c billing_db` → `TABLE orders;` | user 20 present, user 22 **absent** |
+| 17 | Start billing-app | `kubectl scale statefulset billing-app --replicas=1` | `billing-app-0` `1/1 Running` |
+| 18 | Order 22 arrives | `TABLE orders;` again | user 22 now present |
 
-kubectl get nodes -A -o wide                                   # 2 nodes Ready
-kubectl -n crud-master get deploy,statefulset                  # kinds match the spec
-kubectl -n crud-master get hpa                                 # 1/3 replicas, cpu x%/60%
-kubectl -n crud-master get pvc,pv                              # Bound, nfs-static
-kubectl -n crud-master get secrets                             # 3 Opaque secrets
-grep -rniE 'password|passwd' Manifests/                        # only secretKeyRef references
-kubectl -n crud-master get pods -o wide                        # pods spread over both nodes
-kubectl -n crud-master get pod -o jsonpath='{range .items[*]}{.spec.containers[0].image}{"\n"}{end}'
-```
+The gateway is reachable at `[GATEWAY_IP]:[GATEWAY_PORT]` = `192.168.56.21:3000`, and also at
+`192.168.56.22:3000`, `:30000` on either node, or `http://192.168.56.21/api/...`.
+
+## Concepts
+
+<p align="center"><img src="docs/k8s-components.svg" alt="Kubernetes control plane, node components and the K3s add-ons, with what each does in this cluster" width="100%"></p>
+
+<details open>
+<summary><b>Orchestration, Kubernetes, K3s</b></summary>
+
+- **Container orchestration** automates running containers across many machines: placing them,
+  restarting them when they fail, scaling them, networking them and rolling out new versions. The
+  benefits are self-healing, horizontal scaling, efficient use of machines, declarative and
+  repeatable deployments, and zero-downtime updates.
+- **Kubernetes** is the standard orchestrator. You declare the desired state (objects such as
+  Deployments, Services and Secrets), and its control loops keep making the actual state match it.
+- **K3s** is a lightweight, CNCF-certified Kubernetes distribution packaged as one binary. It swaps
+  etcd for SQLite by default and bundles containerd, flannel, CoreDNS, Traefik, ServiceLB,
+  metrics-server and local-path storage. That suits VMs, edge devices and labs like this one. Here,
+  `master` runs the K3s server and `agent` runs the K3s agent.
 </details>
 
 <details>
-<summary><b>Concepts worth being able to explain</b></summary>
+<summary><b>Infrastructure as code and manifests</b></summary>
 
-| Question | Short answer |
-|---|---|
-| Deployment or StatefulSet? | Deployment pods are interchangeable. StatefulSet pods get a stable name, stable DNS and their own PVC, created and deleted in order. |
-| Why is the gateway a Deployment but billing-app a StatefulSet? | The gateway is stateless and scales freely. billing-app is a StatefulSet by spec, and a single stable consumer identity keeps message processing predictable. |
-| What does the HPA scale on? | Average CPU usage ÷ CPU request across the pods. Above 60% it adds pods (max 3). |
-| What is a headless Service? | `clusterIP: None`. DNS returns the pod IPs directly, which StatefulSets need for per-pod names. |
-| Service vs Ingress? | A Service gives pods a stable virtual IP and DNS name. An Ingress is L7 HTTP routing from outside the cluster to Services (here Traefik routes `/api` → api-gateway-app). |
-| PV vs PVC? | A PV is a piece of storage (here an NFS directory). A PVC is a pod's request for storage, bound to a matching PV. |
-| How are secrets protected? | They are Kubernetes Secrets created from a gitignored `.env`, never written to a manifest, and injected as env vars with `secretKeyRef`. |
-| K3s vs K8s? | K3s is a certified Kubernetes distribution packaged as one binary, with SQLite/etcd, Traefik, CoreDNS, metrics-server and local-path bundled. |
+- **Infrastructure as code** means describing infrastructure in versioned files instead of building
+  it by hand. Here that's the `Vagrantfile` (VMs), the provisioning scripts (K3s and NFS), the
+  manifests (workloads) and `orchestrator.sh` (the workflow). The advantages: environments are
+  reproducible, every change is reviewable in git, you can rebuild from scratch in one command,
+  nothing drifts between machines, and the files double as documentation.
+- **A Kubernetes manifest** is a YAML (or JSON) description of one or more objects. It has
+  `apiVersion`, `kind`, `metadata` (name, namespace, labels) and `spec`, which is the desired state.
+  `kubectl apply` sends it to the API server, and controllers make it real.
+
+| Manifest | Objects | Role |
+|---|---|---|
+| `namespace.yaml` | Namespace | isolates every project object under `crud-master` |
+| `storage.yaml` | StorageClass, 2 PersistentVolumes | NFS-backed storage that both nodes can mount, kept after deletion (`Retain`) |
+| `inventory-db.yaml`, `billing-db.yaml` | headless Service, StatefulSet | PostgreSQL with stable identity `*-db-0`, its own PVC, probes on `pg_isready` |
+| `rabbit-queue.yaml` | Deployment, Service | RabbitMQ on `5672`, management UI on `15672` |
+| `inventory-app.yaml` | Deployment, Service | movies API on `8080`, credentials from `inventory-db-secret` |
+| `billing-app.yaml` | headless Service, StatefulSet | queue consumer, `8080` health endpoint |
+| `api-gateway-app.yaml` | Deployment, LoadBalancer Service, Ingress | public entry on `3000` / `30000` / `:80/api` |
+| `*-hpa.yaml` | HorizontalPodAutoscaler | 1 to 3 replicas, 60% average CPU target |
+</details>
+
+<details>
+<summary><b>Deployment, StatefulSet, scaling, load balancing</b></summary>
+
+- **Deployment**: manages a ReplicaSet of interchangeable pods with random names. They can be
+  created, deleted and replaced in any order, and rolling updates come built in. That fits
+  stateless apps such as the gateway and inventory-app.
+- **StatefulSet**: manages pods with a stable, ordered identity (`name-0`, `name-1`, …), a stable DNS
+  name through a headless Service, and a PVC per pod created from `volumeClaimTemplates`. That PVC
+  follows the pod's identity when the pod is rescheduled. Pods are created and deleted in order.
+- **The difference**: Deployment pods are disposable and identical. StatefulSet pods are individuals
+  that keep their name and their storage.
+- **Why a database isn't a Deployment**: replicas of a Deployment share one PVC or get none, have no
+  stable identity, and can run two at once during a rolling update. Two PostgreSQL servers writing
+  the same data directory corrupt it. A StatefulSet keeps exactly one `billing-db-0` bound to its own
+  volume, and starts its replacement only after the old pod is gone.
+- **Scaling** means changing capacity to match load. *Horizontal* scaling adds more pods, which the
+  HPA does here on CPU. *Vertical* scaling gives each pod more CPU or memory. It keeps latency steady
+  under load and saves resources when traffic is quiet.
+- **Load balancer**: spreads incoming traffic across healthy backends, so no single instance is
+  overloaded and failed ones are skipped. Here, every Service load-balances across its pods
+  (kube-proxy), ServiceLB exposes the gateway on every node's `:3000` (`type: LoadBalancer`), and
+  Traefik balances HTTP on `:80`.
 </details>
 
 ## Troubleshooting
 
 <details>
-<summary>A pod is stuck in <code>ErrImagePull</code> / <code>ImagePullBackOff</code></summary>
+<summary><code>ErrImagePull</code> / <code>ImagePullBackOff</code></summary>
 
-The image isn't on Docker Hub under the name in `.env`, or its architecture doesn't match the VMs.
-Check with `kubectl -n crud-master describe pod <pod>`. Re-run `./Scripts/build-push.sh`, then
+Either the image isn't on Docker Hub under `DOCKERHUB_USERNAME`, or it was built for another CPU
+architecture. Check with `kubectl describe pod <pod>`. Then run `./Scripts/build-push.sh` and
 `./orchestrator.sh deploy`.
+</details>
+
+<details>
+<summary><code>kubectl</code> answers "connection refused" or shows no resources</summary>
+
+The cluster is stopped (`./orchestrator.sh start`), or `~/.kube/config` belongs to another cluster.
+In that case, run `export KUBECONFIG=$(pwd)/.kube/config`. Resources live in `crud-master`, which is
+the default namespace of this kubeconfig.
 </details>
 
 <details>
 <summary>The agent never becomes Ready</summary>
 
-`vagrant ssh agent -c 'sudo journalctl -u k3s-agent -n 50'`. A stale `.kube/node-token` from an
-older cluster is the usual cause. Run `./orchestrator.sh destroy` and then `create`.
+Check `vagrant ssh agent -c 'sudo journalctl -u k3s-agent -n 50'`. The usual cause is a stale join
+token from an older cluster. Run `./orchestrator.sh destroy`, then `./orchestrator.sh create`.
 </details>
 
 <details>
 <summary>A database PVC stays <code>Pending</code></summary>
 
-The NFS PV isn't available. `kubectl get pv` should show both PVs `Available` or `Bound`. If a PV
-shows `Released` after a namespace was deleted, its claimRef must be cleared:
+Run `kubectl get pv`: both PVs should be `Available` or `Bound`. A PV left `Released` after its
+claim was deleted needs its claimRef cleared:
 `kubectl patch pv inventory-db-pv -p '{"spec":{"claimRef":null}}'`.
 </details>
 
 <details>
 <summary>HPA shows <code>&lt;unknown&gt;/60%</code></summary>
 
-metrics-server needs about a minute after start-up. Check `kubectl top pods -n crud-master`.
+metrics-server needs about a minute after start-up before it reports CPU. Check with
+`kubectl top pods`.
 </details>
 
-## Cleanup
+## Regenerating the docs images
 
 ```bash
-./orchestrator.sh stop      # pause: keep everything
-./orchestrator.sh destroy   # remove the VMs, the NFS data on the master and .kube/
+python3 docs/tools/diagrams.py                              # architecture + components
+CAPTURE_DIR=docs/screens/raw ./Scripts/audit-check.sh       # capture real output
+./docs/tools/render-screens.sh                              # raw text → docs/screens/*.svg
 ```

@@ -1,0 +1,7 @@
+$ kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[0].image}{"\n"}{end}'
+api-gateway-app-6579695fc9-j2wxt	alasmawi/api-gateway-app:latest
+billing-app-0	alasmawi/billing-app:latest
+billing-db-0	alasmawi/billing-db:latest
+inventory-app-778b4b575b-ksgrl	alasmawi/inventory-app:latest
+inventory-db-0	alasmawi/inventory-db:latest
+rabbit-queue-b67fc7985-2jgnz	alasmawi/rabbit-queue:latest

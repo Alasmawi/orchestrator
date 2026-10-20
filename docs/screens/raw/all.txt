@@ -1,0 +1,35 @@
+$ kubectl get all
+NAME                                   READY   STATUS    RESTARTS   AGE
+pod/api-gateway-app-6579695fc9-j2wxt   1/1     Running   0          2m28s
+pod/billing-app-0                      1/1     Running   0          2m29s
+pod/billing-db-0                       1/1     Running   0          2m29s
+pod/inventory-app-778b4b575b-ksgrl     1/1     Running   0          2m29s
+pod/inventory-db-0                     1/1     Running   0          2m29s
+pod/rabbit-queue-b67fc7985-2jgnz       1/1     Running   0          2m29s
+
+NAME                      TYPE           CLUSTER-IP      EXTERNAL-IP                   PORT(S)              AGE
+service/api-gateway-app   LoadBalancer   10.43.82.139    192.168.56.21,192.168.56.22   3000:30000/TCP       2m28s
+service/billing-app       ClusterIP      None            <none>                        8080/TCP             2m29s
+service/billing-db        ClusterIP      None            <none>                        5432/TCP             2m29s
+service/inventory-app     ClusterIP      10.43.46.111    <none>                        8080/TCP             2m29s
+service/inventory-db      ClusterIP      None            <none>                        5432/TCP             2m29s
+service/rabbit-queue      ClusterIP      10.43.220.169   <none>                        5672/TCP,15672/TCP   2m29s
+
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/api-gateway-app   1/1     1            1           2m28s
+deployment.apps/inventory-app     1/1     1            1           2m29s
+deployment.apps/rabbit-queue      1/1     1            1           2m29s
+
+NAME                                         DESIRED   CURRENT   READY   AGE
+replicaset.apps/api-gateway-app-6579695fc9   1         1         1       2m28s
+replicaset.apps/inventory-app-778b4b575b     1         1         1       2m29s
+replicaset.apps/rabbit-queue-b67fc7985       1         1         1       2m29s
+
+NAME                            READY   AGE
+statefulset.apps/billing-app    1/1     2m29s
+statefulset.apps/billing-db     1/1     2m29s
+statefulset.apps/inventory-db   1/1     2m29s
+
+NAME                                                  REFERENCE                    TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/api-gateway-app   Deployment/api-gateway-app   cpu: 1%/60%   1         3         1          2m28s
+horizontalpodautoscaler.autoscaling/inventory-app     Deployment/inventory-app     cpu: 1%/60%   1         3         1          2m28s

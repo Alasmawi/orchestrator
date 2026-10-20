@@ -1,0 +1,3 @@
+$ vagrant status
+master                    running (virtualbox)
+agent                     running (virtualbox)
