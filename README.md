@@ -6,6 +6,11 @@ built by Vagrant, from images on Docker Hub, and one script drives all of it:
 
 <p align="center"><img src="docs/architecture.svg" alt="Deployed architecture: host, two K3s nodes, the crud-master namespace with six components, secrets and NFS storage" width="100%"></p>
 
+<sub>The diagram is animated. Blue packets are a synchronous movies request: client → LoadBalancer
+→ api-gateway-app → inventory-app → inventory-db. Orange packets are a billing message: client →
+gateway → rabbit-queue → billing-app → billing-db. Green is kubectl talking to the API server. With
+reduced motion enabled, the diagram is static.</sub>
+
 **Contents**
 [Components](#components) ·
 [Quick start](#quick-start) ·
@@ -490,7 +495,7 @@ metrics-server needs about a minute after start-up before it reports CPU. Check 
 ## Regenerating the docs images
 
 ```bash
-python3 docs/tools/diagrams.py                              # architecture + components
+python3 docs/tools/diagrams.py                              # architecture + components (icons in docs/icons)
 CAPTURE_DIR=docs/screens/raw ./Scripts/audit-check.sh       # capture real output
 ./docs/tools/render-screens.sh                              # raw text → docs/screens/*.svg
 ```

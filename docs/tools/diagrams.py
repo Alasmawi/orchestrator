@@ -1,219 +1,402 @@
 #!/usr/bin/env python3
-"""Generate the README diagrams (flat SVG, no external assets).
+"""Generate the README diagrams as self-contained SVGs (icons are inlined, so
+nothing is fetched when the image is viewed).
 
-    python3 docs/tools/diagrams.py      # writes docs/architecture.svg, docs/k8s-components.svg
+    python3 docs/tools/diagrams.py   # writes docs/architecture.svg, docs/k8s-components.svg
 
 Everything drawn here mirrors the manifests: kinds, ports, replica bounds,
 Service types and storage. Change the manifests, then change this.
+
+Icons: docs/icons/brands (Simple Icons, CC0) and docs/icons/k8s (Kubernetes
+community icons, Apache-2.0). See docs/icons/README.md.
 """
 import html
 import os
+import re
+import xml.etree.ElementTree as ET
 
-INK, PANEL, PANEL2, BONE = "#0E0F12", "#15171C", "#1B1D23", "#EFE9DD"
-CARMINE, ROSE, AMBER = "#B0122B", "#EA5F70", "#F2A93B"
-SOFT, MUTED, DIM = "#A3A4AB", "#8D8F98", "#5C5E66"
-HAIR = "rgba(239,233,221,.14)"
-HAIR2 = "rgba(239,233,221,.28)"
+HERE = os.path.dirname(os.path.abspath(__file__))
+DOCS = os.path.join(HERE, "..")
+ICONS = os.path.join(DOCS, "icons")
+SVG_NS = "http://www.w3.org/2000/svg"
+ET.register_namespace("", SVG_NS)
+
+FONT = "'Inter','Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif"
 MONO = "'JetBrains Mono','SFMono-Regular',Menlo,Consolas,monospace"
-COND = "'Archivo Narrow','Arial Narrow','Roboto Condensed','Helvetica Neue',Arial,sans-serif"
-BODY = "Archivo,'Helvetica Neue',Arial,sans-serif"
+TEXT, TEXT2, MUTED, LINE = "#232F3E", "#545B64", "#7D8998", "#D5DBDB"
 
-OUT = os.path.join(os.path.dirname(__file__), "..")
+# Official brand colours (Simple Icons data).
+BRAND = {
+    "apple": "000000", "containerd": "575757", "curl": "073551", "debian": "A81D33",
+    "docker": "2496ED", "etcd": "419EDA", "flask": "000000", "gnubash": "4EAA25",
+    "k3s": "FFC61C", "kubernetes": "326CE5", "linux": "FCC624", "postgresql": "4169E1",
+    "postman": "FF6C37", "python": "3776AB", "rabbitmq": "FF6600", "sqlalchemy": "D71F00",
+    "sqlite": "003B57", "traefikproxy": "24A1C1", "ubuntu": "E95420", "vagrant": "1868F2",
+    "virtualbox": "2F61B4",
+}
 e = html.escape
 
 
-def label(x, y, text, fill=MUTED, size=10.5, anchor="start", spacing=1.3):
-    return (f'<text x="{x}" y="{y}" font-family="{MONO}" font-size="{size}" fill="{fill}" '
-            f'letter-spacing="{spacing}" text-anchor="{anchor}">{e(text)}</text>')
+# --------------------------------------------------------------------- icons
+def brand(name, x, y, size, colour=None):
+    """A Simple Icons logo: one 24x24 path, filled with its brand colour."""
+    src = open(os.path.join(ICONS, "brands", f"{name}.svg")).read()
+    d = re.search(r'<path d="([^"]+)"', src).group(1)
+    fill = colour or f"#{BRAND[name]}"
+    return (f'<svg x="{x}" y="{y}" width="{size}" height="{size}" viewBox="0 0 24 24">'
+            f'<path d="{d}" fill="{fill}"/></svg>')
 
 
-def title(x, y, text, size=20, fill=BONE, anchor="start"):
-    return (f'<text x="{x}" y="{y}" font-family="{COND}" font-weight="800" font-size="{size}" '
-            f'fill="{fill}" text-anchor="{anchor}">{e(text.upper())}</text>')
+_k8s_cache = {}
 
 
-def body(x, y, text, size=13, fill=SOFT):
-    return f'<text x="{x}" y="{y}" font-family="{BODY}" font-size="{size}" fill="{fill}">{e(text)}</text>'
+def k8s(name, x, y, size):
+    """An official Kubernetes icon, cleaned of editor metadata, ids namespaced."""
+    if name not in _k8s_cache:
+        root = ET.parse(os.path.join(ICONS, "k8s", f"{name}.svg")).getroot()
+        view_box = root.get("viewBox")
+        parts = []
+        for child in root:
+            tag = child.tag.split("}")[-1]
+            if tag in ("metadata", "namedview") or not child.tag.startswith("{" + SVG_NS):
+                continue
+            for el in child.iter():
+                for attr in list(el.attrib):
+                    if attr.startswith("{") and not attr.startswith("{" + SVG_NS):
+                        del el.attrib[attr]
+                if "id" in el.attrib:
+                    el.attrib["id"] = f"k8s-{name}-{el.attrib['id']}"
+            parts.append(ET.tostring(child, encoding="unicode"))
+        _k8s_cache[name] = (view_box, "".join(parts))
+    return (f'<use href="#k8s-{name}" xlink:href="#k8s-{name}" x="{x}" y="{y}" '
+            f'width="{size}" height="{size}"/>')
 
 
-def frame(x, y, w, h, fill="none", stroke=HAIR, dash=None):
-    d = f' stroke-dasharray="{dash}"' if dash else ""
-    return f'<rect x="{x}.5" y="{y}.5" width="{w}" height="{h}" fill="{fill}" stroke="{stroke}"{d}/>'
+def symbols():
+    """<symbol> for every Kubernetes icon used, so each is embedded once."""
+    return "".join(f'<symbol id="k8s-{n}" viewBox="{vb}">{inner}</symbol>'
+                   for n, (vb, inner) in sorted(_k8s_cache.items()))
 
 
-def card(x, y, w, h, bar):
-    return frame(x, y, w, h, PANEL) + f'<rect x="{x}" y="{y}" width="4" height="{h + 1}" fill="{bar}"/>'
+def glyph(kind, x, y, size, colour=TEXT2):
+    """Small drawn icons for things without an official logo."""
+    s = size / 24
+    paths = {
+        "nfs": '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/>'
+               '<circle cx="7" cy="7" r="1" fill="C"/><circle cx="7" cy="17" r="1" fill="C"/>'
+               '<path d="M12 10v4"/>',
+        "flannel": '<circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/>'
+                   '<path d="M7.3 11 16.7 6M7.3 13l9.4 5M19 7.5v9"/>',
+        "dns": '<rect x="2.5" y="5" width="19" height="14" rx="2"/>'
+               '<text x="12" y="15.2" font-size="7" font-weight="700" text-anchor="middle" fill="C" stroke="none" '
+               f'font-family="{FONT}">DNS</text>',
+        "metrics": '<path d="M3 21h18"/><rect x="5" y="12" width="3" height="7"/><rect x="10.5" y="7" width="3" height="12"/>'
+                   '<rect x="16" y="3" width="3" height="16"/>',
+    }[kind].replace('"C"', f'"{colour}"')
+    return (f'<g transform="translate({x},{y}) scale({s})" fill="none" stroke="{colour}" stroke-width="1.6" '
+            f'stroke-linecap="round" stroke-linejoin="round">{paths}</g>')
 
 
-def chip(x, y, text, fill=SOFT, stroke=HAIR2):
-    w = int(len(text) * 6.6 + 16)
-    return (frame(x, y, w, 20, PANEL2, stroke) +
-            f'<text x="{x + 8}" y="{y + 14}" font-family="{MONO}" font-size="11" fill="{fill}">{e(text)}</text>', w)
+# ------------------------------------------------------------------ drawing
+def text(x, y, s, size=13, fill=TEXT, weight=400, anchor="start", family=FONT):
+    return (f'<text x="{x}" y="{y}" font-family="{family}" font-size="{size}" font-weight="{weight}" '
+            f'fill="{fill}" text-anchor="{anchor}">{e(s)}</text>')
 
 
-def chips(x, y, items, gap=6):
-    out = []
-    for item in items:
-        text, fill = item if isinstance(item, tuple) else (item, SOFT)
-        svg, w = chip(x, y, text, fill)
-        out.append(svg)
-        x += w + gap
+def group(x, y, w, h, title, colour, icon=None, dash=False, fill=None, sub=None):
+    fill = fill or "none"
+    d = ' stroke-dasharray="6 5"' if dash else ""
+    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="10" fill="{fill}" stroke="{colour}" stroke-width="1.6"{d}/>']
+    tx = x + 14
+    if icon:
+        out.append(icon(x + 12, y + 9))
+        tx = x + 44
+    out.append(text(tx, y + 26, title, 14, colour, 700))
+    if sub:
+        out.append(text(x + w - 14, y + 26, sub, 12, TEXT2, 400, "end"))
     return "".join(out)
 
 
-def wire(points, text=None, tx=None, ty=None, dash=False, anchor="middle"):
+def tile(x, y, icon, name, detail=None, w=76):
+    """Small icon + caption, used for components inside a node."""
+    out = [icon(x + (w - 36) / 2, y), text(x + w / 2, y + 52, name, 11.5, TEXT, 600, "middle")]
+    if detail:
+        out.append(text(x + w / 2, y + 66, detail, 10.5, TEXT2, 400, "middle"))
+    return "".join(out)
+
+
+def node(x, y, logo, name, kind_icon, kind, detail, colour, badge=None, w=170, h=128):
+    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" fill="#FFFFFF" stroke="{LINE}" stroke-width="1.2"/>',
+           f'<rect x="{x}" y="{y}" width="{w}" height="4" rx="2" fill="{colour}"/>',
+           logo(x + w / 2 - 20, y + 14),
+           text(x + w / 2, y + 76, name, 14.5, TEXT, 700, "middle"),
+           k8s(kind_icon, x + 14, y + 85, 18),
+           text(x + 36, y + 98, kind, 11.5, TEXT2, 500),
+           text(x + w / 2, y + 117, detail, 11.5, colour, 600, "middle", MONO)]
+    if badge:
+        out.append(k8s(badge, x + w - 34, y + 10, 24))
+    return "".join(out)
+
+
+# Animation: packets travel along request wires (CSS motion path). They are
+# invisible unless animating, so a still render or prefers-reduced-motion
+# shows the finished static diagram.
+PACKETS = []
+CYCLE = 8.0          # seconds for one full pass of both flows
+HOP = 0.8            # seconds a packet spends on one wire
+STYLE = f"""<style>
+.flow {{ fill: none; stroke-width: 2.2; stroke-dasharray: 3 9; stroke-opacity: 0;
+         animation: flow 1.1s linear infinite; }}
+@keyframes flow {{ from {{ stroke-dashoffset: 12; stroke-opacity: .55; }}
+                   to {{ stroke-dashoffset: 0; stroke-opacity: .55; }} }}
+.pkt {{ opacity: 0; offset-rotate: 0deg; animation: pkt {CYCLE}s linear infinite; }}
+@keyframes pkt {{ 0% {{ offset-distance: 0%; opacity: 1; }}
+                  {HOP / CYCLE * 100:.2f}% {{ offset-distance: 100%; opacity: 1; }}
+                  {HOP / CYCLE * 100 + 0.5:.2f}%, 100% {{ offset-distance: 100%; opacity: 0; }} }}
+@media (prefers-reduced-motion: reduce) {{ .flow, .pkt {{ animation: none; }} }}
+</style>"""
+
+
+def arrow(points, label=None, at=None, dash=False, colour=TEXT2, flow=None, packet=None):
+    """flow: colour of animated dashes on the wire; packet: (hop index, colour)."""
     d = " ".join(f"{'M' if i == 0 else 'L'}{px},{py}" for i, (px, py) in enumerate(points))
-    dd = ' stroke-dasharray="4 4"' if dash else ""
-    out = f'<path d="{d}" fill="none" stroke="{SOFT}" stroke-width="1.2"{dd} marker-end="url(#arrow)"/>'
-    if text:
-        out += label(tx, ty, text, MUTED, 10, anchor, 0.6)
-    return out
+    dd = ' stroke-dasharray="5 4"' if dash else ""
+    out = [f'<path d="{d}" fill="none" stroke="{colour}" stroke-width="1.6"{dd} marker-end="url(#arrow)"/>']
+    if flow:
+        out.append(f'<path class="flow" d="{d}" stroke="{flow}"/>')
+    if packet:
+        hop, pcolour = packet
+        PACKETS.append(f'<circle class="pkt" r="5" fill="{pcolour}" stroke="#FFFFFF" stroke-width="1.6" '
+                       f'style="offset-path: path(\'{d}\'); animation-delay: {hop * HOP:.1f}s"/>')
+    if label:
+        lx, ly = at
+        w = len(label) * 6.6 + 12
+        out.append(f'<rect x="{lx - w / 2}" y="{ly - 11}" width="{w}" height="17" rx="8.5" fill="#FFFFFF" stroke="{LINE}"/>')
+        out.append(text(lx, ly + 2, label, 10.5, TEXT2, 500, "middle", MONO))
+    return "".join(out)
 
 
-def component(x, y, kind, name, detail, bar, w=170, h=74):
-    return (card(x, y, w, h, bar) + label(x + 14, y + 19, kind, MUTED, 9.5, spacing=1.2) +
-            title(x + 14, y + 44, name, 19) + label(x + 14, y + 62, detail, ROSE, 10.5, spacing=0.4))
+def document(w, h, body):
+    packets = "".join(PACKETS)
+    PACKETS.clear()
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+            f'width="{w}" height="{h}" viewBox="0 0 {w} {h}"><defs>{symbols()}<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" '
+            f'orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="{TEXT2}"/></marker></defs>{STYLE}'
+            f'<rect width="{w}" height="{h}" fill="#FFFFFF"/>{body}{packets}</svg>\n')
 
 
-def svg(w, h, content):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
-            f'<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" '
-            f'orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="{SOFT}"/></marker></defs>'
-            f'<rect width="{w}" height="{h}" fill="{INK}"/>{content}</svg>\n')
+def B(name, size=40, colour=None):
+    return lambda x, y: brand(name, x, y, size, colour)
 
 
+def K(name, size=40):
+    return lambda x, y: k8s(name, x, y, size)
+
+
+def G(kind, size=40):
+    return lambda x, y: glyph(kind, x, y, size)
+
+
+# ------------------------------------------------------------- architecture
 def architecture():
-    W, H = 1200, 850
-    s = []
-    # header + legend
-    s.append(label(30, 34, "ORCHESTRATOR · DEPLOYED ARCHITECTURE", ROSE, 11))
-    s.append(title(30, 66, "Six components on a two-node K3s cluster", 30))
-    lx = 716
-    s.append(f'<rect x="{lx}" y="26" width="4" height="12" fill="{CARMINE}"/>' + label(lx + 12, 36, "STATEFULSET", SOFT, 10))
-    s.append(f'<rect x="{lx + 110}" y="26" width="4" height="12" fill="{DIM}"/>' + label(lx + 122, 36, "DEPLOYMENT", SOFT, 10))
-    s.append(f'<path d="M{lx + 222},32 h26" stroke="{SOFT}" marker-end="url(#arrow)"/>' + label(lx + 256, 36, "TRAFFIC", SOFT, 10))
-    s.append(f'<path d="M{lx + 318},32 h26" stroke="{SOFT}" stroke-dasharray="4 4" marker-end="url(#arrow)"/>' +
-             label(lx + 352, 36, "VOLUME · PULL", SOFT, 10))
-    s.append(f'<line x1="30" y1="86" x2="{W - 30}" y2="86" stroke="{HAIR}"/>')
+    W, H = 1440, 950
+    s = [text(24, 40, "orchestrator · deployed architecture", 22, TEXT, 700),
+         text(24, 63, "Six microservices on a two-node K3s cluster, provisioned by Vagrant on VirtualBox, "
+                      "images pulled from Docker Hub.", 13.5, TEXT2)]
 
-    # host column
-    s.append(frame(30, 104, 200, 716) + label(44, 124, "HOST · MACOS", MUTED, 10))
-    s.append(card(44, 140, 172, 70, DIM) + label(58, 160, "CLIENT", MUTED, 9.5) + title(58, 184, "curl · Postman", 18) +
-             label(58, 200, "audit requests", ROSE, 10.5, spacing=0.4))
-    s.append(card(44, 250, 172, 70, DIM) + label(58, 270, "CLI", MUTED, 9.5) + title(58, 294, "kubectl", 18) +
-             label(58, 310, "~/.kube/config", ROSE, 10.5, spacing=0.4))
-    s.append(card(44, 380, 172, 88, DIM) + label(58, 400, "IAC", MUTED, 9.5) + title(58, 424, "orchestrator.sh", 18) +
-             label(58, 440, "vagrant · kubectl", ROSE, 10.5, spacing=0.4) + label(58, 456, "create start stop", MUTED, 10, spacing=0.4))
-    s.append(card(44, 680, 172, 88, DIM) + label(58, 700, "REGISTRY", MUTED, 9.5) + title(58, 724, "Docker Hub", 18) +
-             label(58, 740, "alasmawi/*:latest", ROSE, 10.5, spacing=0.4) + label(58, 756, "6 images", MUTED, 10, spacing=0.4))
+    # legend
+    lx = 980
+    s.append(arrow([(lx, 36), (lx + 34, 36)]) + text(lx + 42, 40, "request", 12, TEXT2))
+    s.append(arrow([(lx + 104, 36), (lx + 138, 36)], dash=True) + text(lx + 146, 40, "volume · image pull", 12, TEXT2))
+    s.append(k8s("deploy", lx, 50, 20) + text(lx + 26, 64, "Deployment", 12, TEXT2))
+    s.append(k8s("sts", lx + 104, 50, 20) + text(lx + 130, 64, "StatefulSet", 12, TEXT2))
+    s.append(k8s("hpa", lx + 222, 50, 20) + text(lx + 248, 64, "HPA", 12, TEXT2))
+    s.append(k8s("svc", lx + 290, 50, 20) + text(lx + 316, 64, "Service", 12, TEXT2))
 
-    # cluster frame
-    s.append(frame(256, 104, 914, 716) + label(270, 124, "K3S CLUSTER · VIRTUALBOX HOST-ONLY NETWORK 192.168.56.0/24", MUTED, 10))
+    # ---- host
+    s.append(group(24, 92, 232, 600, "Host · macOS", TEXT2, lambda x, y: brand("apple", x, y, 22), fill="#F8F9F9"))
+    hosts = [
+        (lambda x, y: brand("curl", x - 22, y, 40) + brand("postman", x + 22, y, 40), "Client", "curl · Postman"),
+        (B("kubernetes"), "kubectl", "~/.kube/config"),
+        (B("gnubash"), "orchestrator.sh", "create · start · stop"),
+        (B("vagrant"), "Vagrant", "2 VMs from Vagrantfile"),
+        (B("docker"), "Docker", "Scripts/build-push.sh"),
+    ]
+    for i, (logo, name, detail) in enumerate(hosts):
+        y = 134 + i * 110
+        s.append(f'<rect x="44" y="{y}" width="192" height="96" rx="8" fill="#FFFFFF" stroke="{LINE}"/>')
+        s.append(logo(120, y + 10))
+        s.append(text(140, y + 70, name, 14, TEXT, 700, "middle"))
+        s.append(text(140, y + 87, detail, 11, TEXT2, 400, "middle", MONO))
+    s.append(arrow([(140, 574), (140, 584)]))           # orchestrator -> vagrant (stacked)
 
-    # nodes
-    s.append(card(270, 138, 440, 124, CARMINE) + label(286, 158, "VM MASTER · 192.168.56.21 · K3S SERVER", BONE, 10.5))
-    s.append(chips(286, 168, [("kube-apiserver :6443", BONE), "scheduler", "controller-manager"]))
-    s.append(chips(286, 194, ["sqlite (kine)", "coredns", "metrics-server", ("traefik :80", BONE)]))
-    s.append(chips(286, 220, [("servicelb :3000", BONE), ("nfs-server /srv/nfs/k3s", ROSE)]))
-    s.append(label(286, 254, "+ node agents: kubelet · kube-proxy · containerd · flannel", MUTED, 10, spacing=0.3))
-    s.append(card(726, 138, 430, 124, DIM) + label(742, 158, "VM AGENT · 192.168.56.22 · K3S AGENT", BONE, 10.5))
-    s.append(chips(742, 168, ["kubelet", "kube-proxy", "containerd"]))
-    s.append(chips(742, 194, ["flannel vxlan (host-only nic)", "nfs-client"]))
-    s.append(label(742, 254, "joins with the token shared through /vagrant", MUTED, 10, spacing=0.3))
+    # ---- docker hub
+    s.append(group(24, 712, 232, 216, "Docker Hub", "#2496ED", lambda x, y: brand("docker", x, y, 22), fill="#F2F8FE"))
+    for i, img in enumerate(["inventory-db", "billing-db", "rabbit-queue", "inventory-app", "billing-app", "api-gateway-app"]):
+        s.append(text(44, 766 + i * 25, f"alasmawi/{img}", 12, TEXT, 500, family=MONO))
+    s.append(arrow([(140, 664), (140, 712)], "push", (172, 690)))
 
-    # namespace
-    s.append(frame(270, 282, 886, 410, "none", HAIR2, "2 4") +
-             label(284, 302, "NAMESPACE CRUD-MASTER · PODS ARE SCHEDULED ON EITHER NODE", MUTED, 10))
-    c1, c2, c3, c4 = 296, 526, 756, 970
-    ya, yb = 344, 564
-    s.append(component(c1, 454, "DEPLOYMENT + HPA", "api-gateway-app", ":3000 · 1-3 @ 60% cpu", DIM))
-    s.append(component(c2, ya, "DEPLOYMENT + HPA", "inventory-app", ":8080 · 1-3 @ 60% cpu", DIM))
-    s.append(component(c4, ya, "STATEFULSET", "inventory-db", ":5432 · postgres 15", CARMINE))
-    s.append(component(c2, yb, "DEPLOYMENT", "rabbit-queue", ":5672 · billing_queue", DIM))
-    s.append(component(c3, yb, "STATEFULSET", "billing-app", ":8080 · consumer", CARMINE))
-    s.append(component(c4, yb, "STATEFULSET", "billing-db", ":5432 · postgres 15", CARMINE))
-    s.append(label(c1, 424, "SERVICE LOADBALANCER :3000", BONE, 9.5, spacing=0.8))
-    s.append(label(c1, 440, "NODEPORT :30000 · INGRESS /api", MUTED, 9.5, spacing=0.8))
+    # ---- virtualbox network / k3s cluster / VMs
+    s.append(group(280, 92, 1136, 836, "VirtualBox · host-only network 192.168.56.0/24", "#2F61B4",
+                   lambda x, y: brand("virtualbox", x, y, 22), fill="#F5F8FD"))
+    s.append(group(298, 134, 1100, 778, "K3s cluster", "#B8860B", lambda x, y: brand("k3s", x, y, 22),
+                   fill="#FFFDF5", sub="v1.36 · flannel VXLAN over the host-only NIC"))
 
-    # traffic
-    s.append(wire([(216, 175), (240, 175), (240, 491), (c1, 491)], "HTTP", 262, 484, anchor="start"))
-    s.append(wire([(216, 285), (236, 285), (236, 200), (270, 200)], "HTTPS", 242, 226, anchor="start"))
-    s.append(wire([(c1 + 170, 480), (498, 480), (498, ya + 37), (c2, ya + 37)], "HTTP", 492, ya + 60, anchor="end"))
-    s.append(wire([(c1 + 170, 502), (498, 502), (498, yb + 37), (c2, yb + 37)], "AMQP", 492, yb + 20, anchor="end"))
-    s.append(wire([(c2 + 170, ya + 37), (c4, ya + 37)], "SQL · inventory-db:5432", (c2 + 170 + c4) / 2, ya + 30))
-    s.append(wire([(c2 + 170, yb + 37), (c3, yb + 37)], "consume", (c2 + 170 + c3) / 2, yb + 30))
-    s.append(wire([(c3 + 170, yb + 37), (c4, yb + 37)], "SQL", (c3 + 170 + c4) / 2, yb + 30))
-    s.append(label(c2, yb + 96, "messages wait here while billing-app is stopped", MUTED, 10, spacing=0.3))
+    s.append(group(316, 176, 656, 196, "VM master · 192.168.56.21 · K3s server", "#E95420",
+                   lambda x, y: brand("ubuntu", x, y, 22), fill="#FFFFFF"))
+    master = [(K("api", 36), "apiserver", ":6443"), (K("sched", 36), "scheduler", None),
+              (K("c-m", 36), "controller", "manager"), (B("sqlite", 36), "SQLite", "datastore"),
+              (B("traefikproxy", 36), "Traefik", "ingress :80"), (K("svc", 36), "ServiceLB", "LB :3000"),
+              (G("dns", 36), "CoreDNS", None), (G("metrics", 36), "metrics", "server"),
+              (G("nfs", 36), "NFS server", "/srv/nfs/k3s")]
+    for i, (icon, name, detail) in enumerate(master):
+        s.append(tile(338 + i * 70, 220, icon, name, detail, 70))
+    s.append(text(332, 356, "also runs the node agents: kubelet · kube-proxy · containerd · flannel", 11.5, TEXT2))
 
-    # storage + secrets
-    s.append(card(756, 712, 400, 92, CARMINE) + label(772, 732, "STORAGE · NFS-STATIC · RECLAIM RETAIN", BONE, 10.5))
-    s.append(chips(772, 742, [("inventory-db-pv 1Gi", BONE), ("billing-db-pv 1Gi", BONE)]))
-    s.append(label(772, 790, "nfs 192.168.56.21:/srv/nfs/k3s — mountable from both nodes", MUTED, 10, spacing=0.2))
-    s.append(wire([(c4 + 170, ya + 37), (1146, ya + 37), (1146, 700), (1100, 700), (1100, 712)], dash=True))
-    s.append(wire([(c4 + 60, yb + 74), (c4 + 60, 712)], dash=True))
-    s.append(card(270, 712, 470, 92, DIM) + label(286, 732, "SECRETS · RENDERED FROM .ENV, NEVER WRITTEN TO A FILE", BONE, 10.5))
-    s.append(chips(286, 742, ["inventory-db-secret", "billing-db-secret", "rabbitmq-secret"]))
-    s.append(label(286, 790, "injected into pods with env.valueFrom.secretKeyRef", MUTED, 10, spacing=0.2))
+    s.append(group(990, 176, 390, 196, "VM agent · 192.168.56.22 · K3s agent", "#E95420",
+                   lambda x, y: brand("ubuntu", x, y, 22), fill="#FFFFFF"))
+    agent = [(K("kubelet", 36), "kubelet", None), (K("k-proxy", 36), "kube-proxy", None),
+             (B("containerd", 36), "containerd", "runtime"), (G("flannel", 36), "flannel", "pod network"),
+             (G("nfs", 36), "NFS client", None)]
+    for i, (icon, name, detail) in enumerate(agent):
+        s.append(tile(1000 + i * 74, 220, icon, name, detail, 74))
+    s.append(text(1004, 356, "joins with the token shared through /vagrant", 11.5, TEXT2))
 
-    # image pull
-    s.append(wire([(216, 724), (256, 724)], dash=True))
-    s.append(label(222, 716, "PULL", MUTED, 9, spacing=0.8))
+    # ---- namespace
+    s.append(group(316, 392, 1064, 384, "Namespace crud-master", "#326CE5", lambda x, y: k8s("ns", x, y, 24),
+                   dash=True, fill="#F7FAFF", sub="pods are scheduled on either node"))
+    ya, yb, yg = 438, 622, 530
+    s.append(f'<rect x="336" y="470" width="124" height="96" rx="8" fill="#FFFFFF" stroke="{LINE}"/>' +
+             k8s("ing", 348, 482, 30) + brand("traefikproxy", 384, 484, 26) +
+             text(398, 536, "Ingress", 12.5, TEXT, 700, "middle") + text(398, 553, ":80 /api", 11, TEXT2, 400, "middle", MONO))
+    s.append(f'<rect x="336" y="590" width="124" height="96" rx="8" fill="#FFFFFF" stroke="{LINE}"/>' +
+             k8s("svc", 382, 600, 34) +
+             text(398, 653, "LoadBalancer", 12.5, TEXT, 700, "middle") +
+             text(398, 670, ":3000 · NodePort :30000", 9.5, TEXT2, 400, "middle", MONO))
+    s.append(node(490, yg, B("flask"), "api-gateway-app", "deploy", "Deployment", ":3000 · 1-3 @ 60%", "#326CE5", "hpa"))
+    s.append(node(730, ya, B("flask"), "inventory-app", "deploy", "Deployment", ":8080 · 1-3 @ 60%", "#326CE5", "hpa"))
+    s.append(node(730, yb, B("rabbitmq"), "rabbit-queue", "deploy", "Deployment", ":5672 · billing_queue", "#FF6600"))
+    s.append(node(950, yb, B("python"), "billing-app", "sts", "StatefulSet", ":8080 · consumer", "#3776AB"))
+    s.append(node(1186, ya, B("postgresql"), "inventory-db", "sts", "StatefulSet", ":5432 · movies_db", "#4169E1"))
+    s.append(node(1186, yb, B("postgresql"), "billing-db", "sts", "StatefulSet", ":5432 · billing_db", "#4169E1"))
 
-    s.append(label(30, 842, "Kinds, ports, replica bounds and storage are taken from Manifests/.", DIM, 10, spacing=0.2))
-    open(os.path.join(OUT, "architecture.svg"), "w").write(svg(W, H, "".join(s)))
+    # ---- secrets + storage
+    s.append(group(316, 792, 540, 110, "Secrets · from .env, never written to a file", TEXT2,
+                   lambda x, y: k8s("secret", x, y, 24), fill="#FFFFFF"))
+    for i, name in enumerate(["inventory-db-secret", "billing-db-secret", "rabbitmq-secret"]):
+        x = 330 + i * 176
+        s.append(k8s("secret", x, 832, 30) + text(x + 35, 845, name, 10.5, TEXT, 600, family=MONO) +
+                 text(x + 35, 861, "secretKeyRef", 10, TEXT2, 400, family=MONO))
+    s.append(group(870, 792, 510, 110, "Storage · cluster-scoped", "#4169E1",
+                   lambda x, y: k8s("sc", x, y, 24), fill="#FFFFFF"))
+    store = [(K("pvc", 32), "2 PVCs", "one per DB pod"), (K("pv", 32), "2 PVs · 1Gi", "Retain"),
+             (K("sc", 32), "nfs-static", "StorageClass"), (G("nfs", 32), "NFS export", "on master")]
+    for i, (icon, name, detail) in enumerate(store):
+        x = 882 + i * 124
+        s.append(icon(x, 832) + text(x + 37, 845, name, 11.5, TEXT, 700) + text(x + 37, 861, detail, 10, TEXT2))
+        if i < 3:
+            s.append(arrow([(x + 106, 848), (x + 120, 848)]))
+
+    # ---- traffic
+    SYNC, ASYNC, OPS = "#326CE5", "#FF6600", "#4EAA25"
+    s.append(arrow([(236, 182), (268, 182), (268, 638), (336, 638)], "HTTP :3000", (302, 610),
+                   flow=SYNC, packet=(0, SYNC)))
+    s.append(arrow([(236, 182), (268, 182), (268, 518), (336, 518)], flow=ASYNC, packet=(5, ASYNC)))
+    s.append(arrow([(268, 518), (336, 518)], ":80", (302, 506)))
+    s.append(arrow([(236, 292), (258, 292), (258, 238), (343, 238)], "HTTPS :6443", (300, 278),
+                   flow=OPS, packet=(3, OPS)))
+    s.append(arrow([(460, 518), (475, 518), (475, 575), (490, 575)], packet=(6, ASYNC)))
+    s.append(arrow([(460, 638), (475, 638), (475, 615), (490, 615)], packet=(1, SYNC)))
+    s.append(arrow([(660, 575), (695, 575), (695, ya + 64), (730, ya + 64)], "HTTP :8080", (695, 532),
+                   flow=SYNC, packet=(2, SYNC)))
+    s.append(arrow([(660, 615), (695, 615), (695, yb + 64), (730, yb + 64)], "AMQP :5672", (695, 660),
+                   flow=ASYNC, packet=(7, ASYNC)))
+    s.append(arrow([(900, ya + 64), (1186, ya + 64)], "SQL :5432", (1043, ya + 64), flow=SYNC, packet=(3, SYNC)))
+    s.append(arrow([(900, yb + 64), (950, yb + 64)], "consume", (925, yb + 46), flow=ASYNC, packet=(8, ASYNC)))
+    s.append(arrow([(1120, yb + 64), (1186, yb + 64)], "SQL", (1153, yb + 46), flow=ASYNC, packet=(9, ASYNC)))
+    s.append(text(815, yb + 144, "messages wait in billing_queue while billing-app is stopped", 11.5, TEXT2, 400, "middle"))
+    s.append(arrow([(1356, ya + 64), (1370, ya + 64), (1370, 800)], dash=True))
+    s.append(arrow([(1271, yb + 128), (1271, 800)], dash=True))
+    s.append(arrow([(256, 846), (298, 846)], dash=True))
+    s.append(text(262, 838, "pull", 10.5, TEXT2, 500, family=MONO))
+
+    s.append(text(24, 942, "Kinds, ports, replica bounds and storage mirror Manifests/. "
+                           "Logos: Simple Icons (CC0) · Kubernetes icons (Apache-2.0).", 11, MUTED))
+    open(os.path.join(DOCS, "architecture.svg"), "w").write(document(W, H, "".join(s)))
 
 
+# ---------------------------------------------------------- k8s components
 def components():
-    W, H = 1200, 680
-    s = [label(30, 34, "KUBERNETES COMPONENTS · AS THEY RUN IN THIS CLUSTER", ROSE, 11),
-         title(30, 66, "Control plane, node agents and the K3s add-ons", 30),
-         f'<line x1="30" y1="86" x2="{W - 30}" y2="86" stroke="{HAIR}"/>']
+    W, H = 1440, 878
+    s = [text(24, 40, "Kubernetes components · as they run in this cluster", 22, TEXT, 700),
+         text(24, 63, "The K3s server on master is the control plane; both VMs run the node agents; "
+                      "K3s bundles the add-ons in kube-system.", 13.5, TEXT2)]
 
-    def column(x, y, w, head, where, rows, bar):
-        out = [card(x, y, w, 58 + len(rows) * 62, bar), label(x + 18, y + 24, head, BONE, 11),
-               label(x + w - 18, y + 24, where, MUTED, 10, "end")]
-        ry = y + 50
-        for name, role in rows:
-            out.append(f'<line x1="{x + 18}" y1="{ry - 8}" x2="{x + w - 18}" y2="{ry - 8}" stroke="{HAIR}"/>')
-            out.append(title(x + 18, ry + 16, name, 18))
-            out.append(body(x + 18, ry + 38, role))
-            ry += 62
+    def rows(gx, gy, items):
+        out = []
+        for i, (icon, name, role) in enumerate(items):
+            y = gy + 50 + i * 80
+            if i:
+                out.append(f'<line x1="{gx + 16}" y1="{y - 12}" x2="{gx + 660}" y2="{y - 12}" stroke="{LINE}"/>')
+            out.append(icon(gx + 18, y))
+            out.append(text(gx + 82, y + 20, name, 15, TEXT, 700))
+            out.append(text(gx + 82, y + 41, role, 13, TEXT2))
         return "".join(out)
 
-    s.append(column(30, 104, 560, "CONTROL PLANE", "master · k3s server", [
-        ("kube-apiserver", "The front door. kubectl, kubelets and controllers all talk to it."),
-        ("datastore (etcd · sqlite in K3s)", "Holds every object: the cluster's desired and current state."),
-        ("kube-scheduler", "Chooses a node for each new pod from requests, affinity and taints."),
-        ("kube-controller-manager", "Control loops: ReplicaSet, StatefulSet, HPA, node, endpoints."),
-        ("cloud-controller-manager", "Cloud API glue. K3s ships its own; ServiceLB provides load balancers."),
-    ], CARMINE))
-    s.append(column(610, 104, 560, "NODE COMPONENTS", "master + agent", [
-        ("kubelet", "Starts the pods assigned to its node, runs probes, reports status."),
-        ("kube-proxy", "Programs iptables so a Service IP reaches the pods behind it."),
-        ("container runtime · containerd", "Pulls images from Docker Hub and runs the containers."),
-        ("cni · flannel", "Pod network: every pod gets an IP reachable from both nodes."),
-    ], DIM))
+    s.append(group(24, 88, 680, 470, "Control plane · master (K3s server)", "#326CE5",
+                   lambda x, y: k8s("control-plane", x, y, 24), fill="#F7FAFF"))
+    s.append(rows(24, 88, [
+        (K("api", 48), "kube-apiserver", "The front door: kubectl, kubelets and controllers all talk to it."),
+        (K("etcd", 48), "Datastore · SQLite via kine (etcd in full K8s)", "Stores every object: the desired and current state of the cluster."),
+        (K("sched", 48), "kube-scheduler", "Picks a node for each new pod from requests, affinity and taints."),
+        (K("c-m", 48), "kube-controller-manager", "Control loops: ReplicaSet, StatefulSet, HPA, nodes, endpoints."),
+        (K("c-c-m", 48), "cloud-controller-manager", "Cloud API glue. K3s ships its own; ServiceLB provides load balancers."),
+    ]))
+    s.append(group(736, 88, 680, 390, "Node components · master and agent", "#E95420",
+                   lambda x, y: k8s("node", x, y, 24), fill="#FFF8F5"))
+    s.append(rows(736, 88, [
+        (K("kubelet", 48), "kubelet", "Starts the pods assigned to its node, runs probes, reports status."),
+        (K("k-proxy", 48), "kube-proxy", "Programs iptables so a Service IP reaches the pods behind it."),
+        (B("containerd", 48), "containerd", "Container runtime: pulls images from Docker Hub and runs them."),
+        (G("flannel", 48), "flannel (CNI)", "Pod network: every pod gets an IP reachable from both nodes."),
+    ]))
+    s.append(group(736, 494, 680, 196, "K3s add-ons · kube-system", "#B8860B",
+                   lambda x, y: brand("k3s", x, y, 22), fill="#FFFDF5"))
+    addons = [(G("dns", 40), "CoreDNS", "Service names to IPs"), (B("traefikproxy", 40), "Traefik", "Ingress /api"),
+              (K("svc", 40), "ServiceLB", "LoadBalancer :3000"), (G("metrics", 40), "metrics-server", "CPU for the HPAs"),
+              (K("sc", 40), "local-path", "default StorageClass")]
+    for i, (icon, name, role) in enumerate(addons):
+        x, y = 752 + (i % 3) * 220, 536 + (i // 3) * 74
+        s.append(f'<rect x="{x}" y="{y}" width="208" height="64" rx="8" fill="#FFFFFF" stroke="{LINE}"/>')
+        s.append(icon(x + 12, y + 12) + text(x + 62, y + 28, name, 13.5, TEXT, 700) + text(x + 62, y + 46, role, 11.5, TEXT2))
 
-    s.append(label(610, 444, "K3S ADD-ONS · KUBE-SYSTEM", BONE, 11))
-    addons = [("coredns", "Service names to IPs:", "inventory-db.crud-master.svc"),
-              ("traefik", "Ingress controller:", "/api to api-gateway-app"),
-              ("servicelb", "type: LoadBalancer:", "gateway on node-ip:3000"),
-              ("metrics-server", "Pod CPU and memory", "that the HPAs read")]
-    for i, (name, l1, l2) in enumerate(addons):
-        x, y = 610 + (i % 2) * 284, 454 + (i // 2) * 84
-        s.append(card(x, y, 276, 74, DIM) + title(x + 16, y + 26, name, 17) +
-                 body(x + 16, y + 46, l1, 12) + label(x + 16, y + 63, l2, ROSE, 10.5, spacing=0.2))
-    s.append(label(30, 508, "WHAT THEY DO FOR THIS PROJECT", BONE, 11))
-    notes = ["kubectl apply sends each manifest to the apiserver,",
-             "which stores it in the datastore.",
-             "Controllers create pods from Deployments and StatefulSets;",
-             "the scheduler places them on master or agent.",
-             "The kubelet starts them with containerd; flannel wires",
-             "them together; kube-proxy and CoreDNS make Services work.",
-             "metrics-server feeds the HPA, which resizes the Deployments."]
-    for i, n in enumerate(notes):
-        s.append(body(30, 534 + i * 20, n, 13))
-    open(os.path.join(OUT, "k8s-components.svg"), "w").write(svg(W, H, "".join(s)))
+    s.append(group(24, 574, 680, 116, "Resources this project creates", "#4169E1",
+                   lambda x, y: k8s("ns", x, y, 24), fill="#FFFFFF"))
+    kinds = [("ns", "Namespace"), ("deploy", "Deployment"), ("sts", "StatefulSet"), ("svc", "Service"),
+             ("ing", "Ingress"), ("hpa", "HPA"), ("secret", "Secret"), ("pvc", "PVC"), ("pv", "PV")]
+    for i, (icon, name) in enumerate(kinds):
+        x = 44 + i * 73
+        s.append(k8s(icon, x + 14, 612, 36) + text(x + 32, 664, name, 11, TEXT, 600, "middle"))
+
+    # how a manifest becomes a running pod
+    s.append(group(24, 706, 1392, 138, "From kubectl apply to a running pod", TEXT2, fill="#F8F9F9"))
+    flow = [(B("kubernetes", 36), "kubectl apply", "sends the manifest"),
+            (K("api", 36), "apiserver", "validates, stores"),
+            (K("etcd", 36), "datastore", "desired state"),
+            (K("c-m", 36), "controllers", "create pods"),
+            (K("sched", 36), "scheduler", "binds to a node"),
+            (K("kubelet", 36), "kubelet", "starts the pod"),
+            (B("containerd", 36), "containerd", "pulls alasmawi/*"),
+            (K("pod", 36), "pod", "Running, Ready")]
+    for i, (icon, name, role) in enumerate(flow):
+        x = 48 + i * 172
+        s.append(icon(x + 50, 742) + text(x + 68, 796, name, 13, TEXT, 700, "middle") +
+                 text(x + 68, 813, role, 11.5, TEXT2, 400, "middle"))
+        if i < len(flow) - 1:
+            s.append(arrow([(x + 104, 760), (x + 204, 760)], flow="#326CE5", packet=(i, "#326CE5")))
+
+    s.append(text(24, 868, "Logos: Simple Icons (CC0) · Kubernetes icons (Apache-2.0).", 11, MUTED))
+    open(os.path.join(DOCS, "k8s-components.svg"), "w").write(document(W, H, "".join(s)))
 
 
 if __name__ == "__main__":
