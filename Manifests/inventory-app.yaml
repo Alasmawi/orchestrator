@@ -19,6 +19,7 @@ spec:
       containers:
         - name: inventory-app
           image: __DOCKERHUB_USERNAME__/inventory-app:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080

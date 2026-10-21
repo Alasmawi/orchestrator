@@ -1,51 +1,51 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1248" height="788" viewBox="0 0 1248 788" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="12.5">
-<rect width="1248" height="788" fill="#0E0F12"/>
-<rect x="0.5" y="0.5" width="1247" height="787" fill="none" stroke="rgba(239,233,221,.14)"/>
-<rect x="1" y="1" width="1246" height="33" fill="#1B1D23"/>
-<line x1="0" y1="34" x2="1248" y2="34" stroke="rgba(239,233,221,.14)"/>
-<rect x="14" y="13" width="9" height="9" fill="#B0122B"/>
-<rect x="29" y="13" width="9" height="9" fill="#5C5E66"/>
-<rect x="44" y="13" width="9" height="9" fill="#5C5E66"/>
-<text x="66" y="21.5" fill="#8D8F98" font-size="11" letter-spacing="1.4">BILLING QUEUE RESILIENCE</text>
-<text x="1234" y="21.5" fill="#5C5E66" font-size="11" text-anchor="end">abdulla@alasmawi</text>
-<text x="20" y="66.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">kubectl scale statefulset billing-app --replicas=0 &amp;&amp; kubectl wait --for=delete pod/billing-app-0 --timeout=60s; kubectl get statefulset billing-app</tspan></text>
-<text x="20" y="84.5" fill="#A3A4AB" xml:space="preserve">statefulset.apps/billing-app <tspan fill="#EFE9DD" font-weight="700">scaled</tspan></text>
-<text x="20" y="102.5" fill="#A3A4AB" xml:space="preserve">pod/billing-app-0 <tspan fill="#EFE9DD" font-weight="700">condition met</tspan></text>
-<text x="20" y="120.5" fill="#A3A4AB" xml:space="preserve">NAME          READY   AGE</text>
-<text x="20" y="138.5" fill="#A3A4AB" xml:space="preserve">billing-app   0/0     3m3s</text>
-<text x="20" y="156.5" fill="#A3A4AB" xml:space="preserve"></text>
-<text x="20" y="174.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">curl -X POST http://192.168.56.21:3000/api/billing/ -d &#x27;{&quot;user_id&quot;: &quot;22&quot;, &quot;number_of_items&quot;: &quot;10&quot;, &quot;total_amount&quot;: &quot;50&quot;}&#x27;</tspan></text>
-<text x="20" y="192.5" fill="#A3A4AB" xml:space="preserve"><tspan fill="#EFE9DD" font-weight="700">HTTP 200</tspan></text>
-<text x="20" y="210.5" fill="#A3A4AB" xml:space="preserve">{&quot;message&quot;:&quot;<tspan fill="#EFE9DD" font-weight="700">Message posted</tspan>&quot;}</text>
-<text x="20" y="228.5" fill="#A3A4AB" xml:space="preserve"></text>
-<text x="20" y="246.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">kubectl exec pods/billing-db-0 -- sudo -i -u postgres psql -c &#x27;\l&#x27;</tspan></text>
-<text x="20" y="264.5" fill="#A3A4AB" xml:space="preserve">                                               List of databases</text>
-<text x="20" y="282.5" fill="#A3A4AB" xml:space="preserve">    Name    |    Owner     | Encoding  | Collate | Ctype | ICU Locale | Locale Provider |   Access privileges   </text>
-<text x="20" y="300.5" fill="#A3A4AB" xml:space="preserve">------------+--------------+-----------+---------+-------+------------+-----------------+-----------------------</text>
-<text x="20" y="318.5" fill="#A3A4AB" xml:space="preserve"> billing_db | billing_user | SQL_ASCII | C       | C     |            | libc            | </text>
-<text x="20" y="336.5" fill="#A3A4AB" xml:space="preserve"> postgres   | postgres     | SQL_ASCII | C       | C     |            | libc            | </text>
-<text x="20" y="354.5" fill="#A3A4AB" xml:space="preserve"> template0  | postgres     | SQL_ASCII | C       | C     |            | libc            | =c/postgres          +</text>
-<text x="20" y="372.5" fill="#A3A4AB" xml:space="preserve">            |              |           |         |       |            |                 | postgres=CTc/postgres</text>
-<text x="20" y="390.5" fill="#A3A4AB" xml:space="preserve"> template1  | postgres     | SQL_ASCII | C       | C     |            | libc            | =c/postgres          +</text>
-<text x="20" y="408.5" fill="#A3A4AB" xml:space="preserve">            |              |           |         |       |            |                 | postgres=CTc/postgres</text>
-<text x="20" y="426.5" fill="#A3A4AB" xml:space="preserve">(4 rows)</text>
-<text x="20" y="444.5" fill="#A3A4AB" xml:space="preserve"></text>
-<text x="20" y="462.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">kubectl exec pods/billing-db-0 -- sudo -i -u postgres psql -d billing_db -c &#x27;TABLE orders;&#x27;</tspan></text>
-<text x="20" y="480.5" fill="#A3A4AB" xml:space="preserve"> id | user_id | number_of_items | total_amount </text>
-<text x="20" y="498.5" fill="#A3A4AB" xml:space="preserve">----+---------+-----------------+--------------</text>
-<text x="20" y="516.5" fill="#A3A4AB" xml:space="preserve">  1 | 20      |              99 |       250.00</text>
-<text x="20" y="534.5" fill="#A3A4AB" xml:space="preserve">(1 row)</text>
-<text x="20" y="552.5" fill="#A3A4AB" xml:space="preserve"></text>
-<text x="20" y="570.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">kubectl scale statefulset billing-app --replicas=1 &amp;&amp; kubectl wait --for=condition=Ready pod/billing-app-0 --timeout=120s; kubectl get statefulset billing-app</tspan></text>
-<text x="20" y="588.5" fill="#A3A4AB" xml:space="preserve">statefulset.apps/billing-app <tspan fill="#EFE9DD" font-weight="700">scaled</tspan></text>
-<text x="20" y="606.5" fill="#A3A4AB" xml:space="preserve">pod/billing-app-0 <tspan fill="#EFE9DD" font-weight="700">condition met</tspan></text>
-<text x="20" y="624.5" fill="#A3A4AB" xml:space="preserve">NAME          READY   AGE</text>
-<text x="20" y="642.5" fill="#A3A4AB" xml:space="preserve">billing-app   <tspan fill="#EFE9DD" font-weight="700">1/1</tspan>     3m17s</text>
-<text x="20" y="660.5" fill="#A3A4AB" xml:space="preserve"></text>
-<text x="20" y="678.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">kubectl exec pods/billing-db-0 -- sudo -i -u postgres psql -d billing_db -c &#x27;TABLE orders;&#x27;</tspan></text>
-<text x="20" y="696.5" fill="#A3A4AB" xml:space="preserve"> id | user_id | number_of_items | total_amount </text>
-<text x="20" y="714.5" fill="#A3A4AB" xml:space="preserve">----+---------+-----------------+--------------</text>
-<text x="20" y="732.5" fill="#A3A4AB" xml:space="preserve">  1 | 20      |              99 |       250.00</text>
-<text x="20" y="750.5" fill="#A3A4AB" xml:space="preserve">  2 | 22      |              10 |        50.00</text>
-<text x="20" y="768.5" fill="#A3A4AB" xml:space="preserve">(2 rows)</text>
+<clipPath id="win"><rect width="1248" height="788" rx="10"/></clipPath>
+<g clip-path="url(#win)">
+<rect width="1248" height="788" fill="#1F2430"/>
+<rect width="1248" height="34" fill="#ECEEF1"/>
+<line x1="0" y1="34" x2="1248" y2="34" stroke="#C9CED6"/>
+</g>
+<rect x="0.5" y="0.5" width="1247" height="787" rx="10" fill="none" stroke="#C9CED6"/>
+<circle cx="20" cy="17" r="6" fill="#FF5F57"/><circle cx="40" cy="17" r="6" fill="#FEBC2E"/><circle cx="60" cy="17" r="6" fill="#28C840"/>
+<text x="624.0" y="21.5" fill="#545B64" font-size="12" font-weight="600" text-anchor="middle" font-family="'Inter','Segoe UI','Helvetica Neue',Arial,sans-serif">billing queue resilience</text>
+<text x="20" y="66.5"><tspan fill="#28C840" font-weight="700">❯</tspan><tspan fill="#FFFFFF" font-weight="700" dx="7.55">kubectl scale statefulset billing-app --replicas=0 &amp;&amp; kubectl wait --for=delete pod/billing-app-0 --timeout=60s; kubectl get statefulset billing-app</tspan></text>
+<text x="20" y="84.5" fill="#C9D1D9" xml:space="preserve">statefulset.apps/billing-app <tspan fill="#7EE787" font-weight="700">scaled</tspan></text>
+<text x="20" y="102.5" fill="#C9D1D9" xml:space="preserve">pod/billing-app-0 <tspan fill="#7EE787" font-weight="700">condition met</tspan></text>
+<text x="20" y="120.5" fill="#C9D1D9" xml:space="preserve">NAME          READY   AGE</text>
+<text x="20" y="138.5" fill="#C9D1D9" xml:space="preserve">billing-app   0/0     3m3s</text>
+<text x="20" y="156.5" fill="#C9D1D9" xml:space="preserve"></text>
+<text x="20" y="174.5"><tspan fill="#28C840" font-weight="700">❯</tspan><tspan fill="#FFFFFF" font-weight="700" dx="7.55">curl -X POST http://192.168.56.21:3000/api/billing/ -d &#x27;{&quot;user_id&quot;: &quot;22&quot;, &quot;number_of_items&quot;: &quot;10&quot;, &quot;total_amount&quot;: &quot;50&quot;}&#x27;</tspan></text>
+<text x="20" y="192.5" fill="#C9D1D9" xml:space="preserve"><tspan fill="#7EE787" font-weight="700">HTTP 200</tspan></text>
+<text x="20" y="210.5" fill="#C9D1D9" xml:space="preserve">{&quot;message&quot;:&quot;<tspan fill="#7EE787" font-weight="700">Message posted</tspan>&quot;}</text>
+<text x="20" y="228.5" fill="#C9D1D9" xml:space="preserve"></text>
+<text x="20" y="246.5"><tspan fill="#28C840" font-weight="700">❯</tspan><tspan fill="#FFFFFF" font-weight="700" dx="7.55">kubectl exec pods/billing-db-0 -- sudo -i -u postgres psql -c &#x27;\l&#x27;</tspan></text>
+<text x="20" y="264.5" fill="#C9D1D9" xml:space="preserve">                                               List of databases</text>
+<text x="20" y="282.5" fill="#C9D1D9" xml:space="preserve">    Name    |    Owner     | Encoding  | Collate | Ctype | ICU Locale | Locale Provider |   Access privileges   </text>
+<text x="20" y="300.5" fill="#C9D1D9" xml:space="preserve">------------+--------------+-----------+---------+-------+------------+-----------------+-----------------------</text>
+<text x="20" y="318.5" fill="#C9D1D9" xml:space="preserve"> billing_db | billing_user | SQL_ASCII | C       | C     |            | libc            | </text>
+<text x="20" y="336.5" fill="#C9D1D9" xml:space="preserve"> postgres   | postgres     | SQL_ASCII | C       | C     |            | libc            | </text>
+<text x="20" y="354.5" fill="#C9D1D9" xml:space="preserve"> template0  | postgres     | SQL_ASCII | C       | C     |            | libc            | =c/postgres          +</text>
+<text x="20" y="372.5" fill="#C9D1D9" xml:space="preserve">            |              |           |         |       |            |                 | postgres=CTc/postgres</text>
+<text x="20" y="390.5" fill="#C9D1D9" xml:space="preserve"> template1  | postgres     | SQL_ASCII | C       | C     |            | libc            | =c/postgres          +</text>
+<text x="20" y="408.5" fill="#C9D1D9" xml:space="preserve">            |              |           |         |       |            |                 | postgres=CTc/postgres</text>
+<text x="20" y="426.5" fill="#C9D1D9" xml:space="preserve">(4 rows)</text>
+<text x="20" y="444.5" fill="#C9D1D9" xml:space="preserve"></text>
+<text x="20" y="462.5"><tspan fill="#28C840" font-weight="700">❯</tspan><tspan fill="#FFFFFF" font-weight="700" dx="7.55">kubectl exec pods/billing-db-0 -- sudo -i -u postgres psql -d billing_db -c &#x27;TABLE orders;&#x27;</tspan></text>
+<text x="20" y="480.5" fill="#C9D1D9" xml:space="preserve"> id | user_id | number_of_items | total_amount </text>
+<text x="20" y="498.5" fill="#C9D1D9" xml:space="preserve">----+---------+-----------------+--------------</text>
+<text x="20" y="516.5" fill="#C9D1D9" xml:space="preserve">  1 | 20      |              99 |       250.00</text>
+<text x="20" y="534.5" fill="#C9D1D9" xml:space="preserve">(1 row)</text>
+<text x="20" y="552.5" fill="#C9D1D9" xml:space="preserve"></text>
+<text x="20" y="570.5"><tspan fill="#28C840" font-weight="700">❯</tspan><tspan fill="#FFFFFF" font-weight="700" dx="7.55">kubectl scale statefulset billing-app --replicas=1 &amp;&amp; kubectl wait --for=condition=Ready pod/billing-app-0 --timeout=120s; kubectl get statefulset billing-app</tspan></text>
+<text x="20" y="588.5" fill="#C9D1D9" xml:space="preserve">statefulset.apps/billing-app <tspan fill="#7EE787" font-weight="700">scaled</tspan></text>
+<text x="20" y="606.5" fill="#C9D1D9" xml:space="preserve">pod/billing-app-0 <tspan fill="#7EE787" font-weight="700">condition met</tspan></text>
+<text x="20" y="624.5" fill="#C9D1D9" xml:space="preserve">NAME          READY   AGE</text>
+<text x="20" y="642.5" fill="#C9D1D9" xml:space="preserve">billing-app   <tspan fill="#7EE787" font-weight="700">1/1</tspan>     3m17s</text>
+<text x="20" y="660.5" fill="#C9D1D9" xml:space="preserve"></text>
+<text x="20" y="678.5"><tspan fill="#28C840" font-weight="700">❯</tspan><tspan fill="#FFFFFF" font-weight="700" dx="7.55">kubectl exec pods/billing-db-0 -- sudo -i -u postgres psql -d billing_db -c &#x27;TABLE orders;&#x27;</tspan></text>
+<text x="20" y="696.5" fill="#C9D1D9" xml:space="preserve"> id | user_id | number_of_items | total_amount </text>
+<text x="20" y="714.5" fill="#C9D1D9" xml:space="preserve">----+---------+-----------------+--------------</text>
+<text x="20" y="732.5" fill="#C9D1D9" xml:space="preserve">  1 | 20      |              99 |       250.00</text>
+<text x="20" y="750.5" fill="#C9D1D9" xml:space="preserve">  2 | 22      |              10 |        50.00</text>
+<text x="20" y="768.5" fill="#C9D1D9" xml:space="preserve">(2 rows)</text>
 </svg>

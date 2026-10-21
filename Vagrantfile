@@ -19,6 +19,10 @@ Vagrant.configure("2") do |config|
   config.vm.provider "virtualbox" do |vb|
     vb.memory = 2048
     vb.cpus = 2
+    # Resolve DNS through the host's live resolver instead of the servers
+    # copied in at boot, so the VMs (and image pulls) keep working after the
+    # host changes network, e.g. from home Wi-Fi to the audit room.
+    vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
   end
 
   config.vm.define "master", primary: true do |master|

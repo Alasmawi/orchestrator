@@ -38,6 +38,7 @@ spec:
       containers:
         - name: billing-db
           image: __DOCKERHUB_USERNAME__/billing-db:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
           ports:
             - name: postgres
               containerPort: 5432

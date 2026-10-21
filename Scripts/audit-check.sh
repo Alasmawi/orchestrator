@@ -101,7 +101,8 @@ N20="$(count 20)"; N22="$(count 22)"
 http POST "$GATEWAY/api/billing/" '{"user_id": "20", "number_of_items": "99", "total_amount": "250"}'
 echo "  POST /api/billing/ (user 20) -> $CODE $BODY"
 check "POST /api/billing/ returns 200" test "$CODE" = 200
-sleep 3
+# Let billing-app store order 20 before stopping it, as a human auditor would.
+for i in $(seq 1 15); do is_count 20 $((N20 + 1)) && break; sleep 2; done
 run stop-billing "kubectl scale statefulset billing-app --replicas=0 && kubectl wait --for=delete pod/billing-app-0 --timeout=60s; kubectl get statefulset billing-app"
 check "billing-app stopped (0 pods)"  bash -c '! kubectl get pod billing-app-0'
 http POST "$GATEWAY/api/billing/" '{"user_id": "22", "number_of_items": "10", "total_amount": "50"}'

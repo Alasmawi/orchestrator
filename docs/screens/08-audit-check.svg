@@ -1,46 +1,46 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="520" height="698" viewBox="0 0 520 698" font-family="'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="12.5">
-<rect width="520" height="698" fill="#0E0F12"/>
-<rect x="0.5" y="0.5" width="519" height="697" fill="none" stroke="rgba(239,233,221,.14)"/>
-<rect x="1" y="1" width="518" height="33" fill="#1B1D23"/>
-<line x1="0" y1="34" x2="520" y2="34" stroke="rgba(239,233,221,.14)"/>
-<rect x="14" y="13" width="9" height="9" fill="#B0122B"/>
-<rect x="29" y="13" width="9" height="9" fill="#5C5E66"/>
-<rect x="44" y="13" width="9" height="9" fill="#5C5E66"/>
-<text x="66" y="21.5" fill="#8D8F98" font-size="11" letter-spacing="1.4">SCRIPTS/AUDIT-CHECK.SH</text>
-<text x="506" y="21.5" fill="#5C5E66" font-size="11" text-anchor="end">abdulla@alasmawi</text>
-<text x="20" y="66.5"><tspan fill="#EA5F70" font-weight="700">❯</tspan><tspan fill="#EFE9DD" dx="7.55">./Scripts/audit-check.sh</tspan></text>
-<text x="20" y="84.5" fill="#A3A4AB" xml:space="preserve">Cluster</text>
-<text x="20" y="102.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> two nodes</text>
-<text x="20" y="120.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> both nodes <tspan fill="#EFE9DD" font-weight="700">Ready</tspan></text>
-<text x="20" y="138.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> names are master and agent</text>
-<text x="20" y="156.5" fill="#A3A4AB" xml:space="preserve">Deployed resources</text>
-<text x="20" y="174.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> api-gateway-app is a Deployment</text>
-<text x="20" y="192.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> inventory-app is a Deployment</text>
-<text x="20" y="210.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> rabbit-queue is a Deployment</text>
-<text x="20" y="228.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> billing-app is a StatefulSet</text>
-<text x="20" y="246.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> inventory-db is a StatefulSet</text>
-<text x="20" y="264.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> billing-db is a StatefulSet</text>
-<text x="20" y="282.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> api-gateway-app HPA: min 1, max 3, 60% CPU</text>
-<text x="20" y="300.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> inventory-app HPA: min 1, max 3, 60% CPU</text>
-<text x="20" y="318.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> database PVCs <tspan fill="#EFE9DD" font-weight="700">Bound</tspan></text>
-<text x="20" y="336.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> service ports 5432/5432/8080/8080/3000</text>
-<text x="20" y="354.5" fill="#A3A4AB" xml:space="preserve">Images and secrets</text>
-<text x="20" y="372.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> every image is from Docker Hub user alasmawi</text>
-<text x="20" y="390.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> 3 secrets exist</text>
-<text x="20" y="408.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> no credentials in Manifests/</text>
-<text x="20" y="426.5" fill="#A3A4AB" xml:space="preserve">Inventory API</text>
-<text x="20" y="444.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> POST /api/movies/ returns 201</text>
-<text x="20" y="462.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> GET /api/movies/ returns 200</text>
-<text x="20" y="480.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> GET returns the new movie as JSON</text>
-<text x="20" y="498.5" fill="#A3A4AB" xml:space="preserve">Billing API and queue resilience</text>
-<text x="20" y="516.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> POST /api/billing/ returns 200</text>
-<text x="20" y="534.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> billing-app stopped (0 pods)</text>
-<text x="20" y="552.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> POST returns 200 while billing-app is down</text>
-<text x="20" y="570.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> billing database is listed</text>
-<text x="20" y="588.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> order user_id=20 is listed</text>
-<text x="20" y="606.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> order user_id=22 is NOT listed</text>
-<text x="20" y="624.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> billing-app started</text>
-<text x="20" y="642.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">PASS</tspan> order user_id=22 is now listed</text>
-<text x="20" y="660.5" fill="#A3A4AB" xml:space="preserve">Result</text>
-<text x="20" y="678.5" fill="#A3A4AB" xml:space="preserve">  <tspan fill="#EFE9DD" font-weight="700">27 passed</tspan>, <tspan fill="#EFE9DD" font-weight="700">0 failed</tspan></text>
+<clipPath id="win"><rect width="520" height="698" rx="10"/></clipPath>
+<g clip-path="url(#win)">
+<rect width="520" height="698" fill="#1F2430"/>
+<rect width="520" height="34" fill="#ECEEF1"/>
+<line x1="0" y1="34" x2="520" y2="34" stroke="#C9CED6"/>
+</g>
+<rect x="0.5" y="0.5" width="519" height="697" rx="10" fill="none" stroke="#C9CED6"/>
+<circle cx="20" cy="17" r="6" fill="#FF5F57"/><circle cx="40" cy="17" r="6" fill="#FEBC2E"/><circle cx="60" cy="17" r="6" fill="#28C840"/>
+<text x="260.0" y="21.5" fill="#545B64" font-size="12" font-weight="600" text-anchor="middle" font-family="'Inter','Segoe UI','Helvetica Neue',Arial,sans-serif">Scripts/audit-check.sh</text>
+<text x="20" y="66.5"><tspan fill="#28C840" font-weight="700">❯</tspan><tspan fill="#FFFFFF" font-weight="700" dx="7.55">./Scripts/audit-check.sh</tspan></text>
+<text x="20" y="84.5" fill="#C9D1D9" xml:space="preserve">Cluster</text>
+<text x="20" y="102.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> two nodes</text>
+<text x="20" y="120.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> both nodes <tspan fill="#7EE787" font-weight="700">Ready</tspan></text>
+<text x="20" y="138.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> names are master and agent</text>
+<text x="20" y="156.5" fill="#C9D1D9" xml:space="preserve">Deployed resources</text>
+<text x="20" y="174.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> api-gateway-app is a Deployment</text>
+<text x="20" y="192.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> inventory-app is a Deployment</text>
+<text x="20" y="210.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> rabbit-queue is a Deployment</text>
+<text x="20" y="228.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> billing-app is a StatefulSet</text>
+<text x="20" y="246.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> inventory-db is a StatefulSet</text>
+<text x="20" y="264.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> billing-db is a StatefulSet</text>
+<text x="20" y="282.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> api-gateway-app HPA: min 1, max 3, 60% CPU</text>
+<text x="20" y="300.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> inventory-app HPA: min 1, max 3, 60% CPU</text>
+<text x="20" y="318.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> database PVCs <tspan fill="#7EE787" font-weight="700">Bound</tspan></text>
+<text x="20" y="336.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> service ports 5432/5432/8080/8080/3000</text>
+<text x="20" y="354.5" fill="#C9D1D9" xml:space="preserve">Images and secrets</text>
+<text x="20" y="372.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> every image is from Docker Hub user alasmawi</text>
+<text x="20" y="390.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> 3 secrets exist</text>
+<text x="20" y="408.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> no credentials in Manifests/</text>
+<text x="20" y="426.5" fill="#C9D1D9" xml:space="preserve">Inventory API</text>
+<text x="20" y="444.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> POST /api/movies/ returns 201</text>
+<text x="20" y="462.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> GET /api/movies/ returns 200</text>
+<text x="20" y="480.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> GET returns the new movie as JSON</text>
+<text x="20" y="498.5" fill="#C9D1D9" xml:space="preserve">Billing API and queue resilience</text>
+<text x="20" y="516.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> POST /api/billing/ returns 200</text>
+<text x="20" y="534.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> billing-app stopped (0 pods)</text>
+<text x="20" y="552.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> POST returns 200 while billing-app is down</text>
+<text x="20" y="570.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> billing database is listed</text>
+<text x="20" y="588.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> order user_id=20 is listed</text>
+<text x="20" y="606.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> order user_id=22 is NOT listed</text>
+<text x="20" y="624.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> billing-app started</text>
+<text x="20" y="642.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">PASS</tspan> order user_id=22 is now listed</text>
+<text x="20" y="660.5" fill="#C9D1D9" xml:space="preserve">Result</text>
+<text x="20" y="678.5" fill="#C9D1D9" xml:space="preserve">  <tspan fill="#7EE787" font-weight="700">27 passed</tspan>, <tspan fill="#7EE787" font-weight="700">0 failed</tspan></text>
 </svg>

@@ -38,6 +38,10 @@ spec:
       containers:
         - name: inventory-db
           image: __DOCKERHUB_USERNAME__/inventory-db:__IMAGE_TAG__
+          # Reuse the node's copy on restarts: a pod coming back (audit step: scale
+          # billing-app 0 -> 1) must not depend on reaching Docker Hub. Ship a new
+          # version by changing IMAGE_TAG.
+          imagePullPolicy: IfNotPresent
           ports:
             - name: postgres
               containerPort: 5432

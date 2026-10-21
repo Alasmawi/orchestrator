@@ -11,8 +11,8 @@ render 01-orchestrator.svg "orchestrator.sh · create · stop · start" $R/creat
 render 02-nodes.svg        "kubectl get nodes -A"                     $R/nodes.txt
 render 03-all.svg          "kubectl get all"                          $R/all.txt
 render 04-hpa-storage.svg  "autoscaling and storage"                  $R/hpa.txt $R/pvc.txt
-render 05-images-secrets.svg "images from docker hub · secrets"       $R/images.txt $R/secrets.txt
-render 06-inventory-api.svg "inventory api through the gateway"       $R/movies-post.txt $R/movies-get.txt
+render 05-images-secrets.svg "images from Docker Hub · secrets"       $R/images.txt $R/secrets.txt
+render 06-inventory-api.svg "inventory API through the gateway"       $R/movies-post.txt $R/movies-get.txt
 render 07-queue-resilience.svg "billing queue resilience"             $R/stop-billing.txt $R/billing-post-down.txt $R/db-list.txt $R/orders-before.txt $R/start-billing.txt $R/orders-after.txt
-render 08-audit-check.svg  "scripts/audit-check.sh"                   $R/audit-check.txt
+render 08-audit-check.svg  "Scripts/audit-check.sh"                   $R/audit-check.txt
 echo "rendered $(ls ./*.svg | wc -l | tr -d ' ') screenshots"

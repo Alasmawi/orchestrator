@@ -19,6 +19,7 @@ spec:
       containers:
         - name: rabbit-queue
           image: __DOCKERHUB_USERNAME__/rabbit-queue:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
           ports:
             - name: amqp
               containerPort: 5672
